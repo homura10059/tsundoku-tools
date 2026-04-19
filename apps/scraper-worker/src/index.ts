@@ -87,7 +87,6 @@ export default {
             // Insert snapshot
             await db.insert(priceSnapshots).values({
               id: crypto.randomUUID(),
-              asin: item.asin,
               scrapedAt: now,
               ...result,
             });

@@ -1,0 +1,4 @@
+
+> @tsundoku-tools/db@0.0.1 type-check /home/user/tsundoku-tools/packages/db
+> tsc --noEmit
+

@@ -1,0 +1,4 @@
+
+> @tsundoku-tools/api@0.0.1 type-check /home/user/tsundoku-tools/apps/api
+> tsc --noEmit
+
