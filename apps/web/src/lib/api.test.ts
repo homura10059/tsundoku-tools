@@ -1,5 +1,5 @@
 import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "./api.js";
 
 const BASE = "http://localhost:8787";
