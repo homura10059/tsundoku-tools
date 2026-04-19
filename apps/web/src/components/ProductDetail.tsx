@@ -6,9 +6,7 @@ import { PriceHistoryChart } from "./PriceHistoryChart.js";
 
 export default function ProductDetail() {
   const asin =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("asin")
-      : null;
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("asin") : null;
 
   const [product, setProduct] = useState<Product | null>(null);
   const [snapshots, setSnapshots] = useState<PriceSnapshot[]>([]);
@@ -57,9 +55,18 @@ export default function ProductDetail() {
 
       {latest && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <Stat label="現在価格" value={latest.priceJpy != null ? formatPriceJpy(latest.priceJpy) : "—"} />
-          <Stat label="参考価格" value={latest.listPriceJpy != null ? formatPriceJpy(latest.listPriceJpy) : "—"} />
-          <Stat label="値引率" value={latest.discountRatePct != null ? `${latest.discountRatePct}%` : "—"} />
+          <Stat
+            label="現在価格"
+            value={latest.priceJpy != null ? formatPriceJpy(latest.priceJpy) : "—"}
+          />
+          <Stat
+            label="参考価格"
+            value={latest.listPriceJpy != null ? formatPriceJpy(latest.listPriceJpy) : "—"}
+          />
+          <Stat
+            label="値引率"
+            value={latest.discountRatePct != null ? `${latest.discountRatePct}%` : "—"}
+          />
           <Stat label="ポイント" value={latest.points != null ? `${latest.points}pt` : "—"} />
         </div>
       )}

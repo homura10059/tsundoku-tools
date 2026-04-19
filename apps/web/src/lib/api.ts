@@ -30,8 +30,7 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-    delete: (id: string) =>
-      request<void>(`/api/wishlists/${id}`, { method: "DELETE" }),
+    delete: (id: string) => request<void>(`/api/wishlists/${id}`, { method: "DELETE" }),
   },
   products: {
     list: () => request<Product[]>("/api/products"),

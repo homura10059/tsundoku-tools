@@ -10,9 +10,7 @@ export class RateLimiter {
     const now = Date.now();
     const elapsed = now - this.lastRequestAt;
     if (elapsed < this.minIntervalMs) {
-      await new Promise<void>((resolve) =>
-        setTimeout(resolve, this.minIntervalMs - elapsed),
-      );
+      await new Promise<void>((resolve) => setTimeout(resolve, this.minIntervalMs - elapsed));
     }
     this.lastRequestAt = Date.now();
   }

@@ -12,7 +12,8 @@
     "@tsundoku-tools/db": "workspace:*",
     "@tsundoku-tools/notifier": "workspace:*",
     "@tsundoku-tools/scraper": "workspace:*",
-    "@tsundoku-tools/shared": "workspace:*"
+    "@tsundoku-tools/shared": "workspace:*",
+    "drizzle-orm": "^0.38.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",

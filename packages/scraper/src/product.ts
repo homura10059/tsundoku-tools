@@ -4,8 +4,7 @@ import type { RateLimiter } from "./rate-limiter.js";
 const AMAZON_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "ja,en-US;q=0.7,en;q=0.3",
 };
 
@@ -24,10 +23,7 @@ export async function scrapeProduct(
   return parseProductPage(asin, response);
 }
 
-async function parseProductPage(
-  asin: string,
-  response: Response,
-): Promise<ScrapeResult> {
+async function parseProductPage(asin: string, response: Response): Promise<ScrapeResult> {
   const result: ScrapeResult = {
     asin,
     priceJpy: null,
@@ -136,13 +132,13 @@ async function parseProductPage(
 
 function parseJpyAmount(text: string): number | null {
   const cleaned = text.replace(/[¥,\s。、]/g, "").trim();
-  const num = parseInt(cleaned, 10);
-  return isNaN(num) ? null : num;
+  const num = Number.parseInt(cleaned, 10);
+  return Number.isNaN(num) ? null : num;
 }
 
 function parsePoints(text: string): number | null {
   const match = text.match(/(\d[\d,]*)\s*pt/);
   if (!match) return null;
-  const num = parseInt(match[1].replace(/,/g, ""), 10);
-  return isNaN(num) ? null : num;
+  const num = Number.parseInt(match[1].replace(/,/g, ""), 10);
+  return Number.isNaN(num) ? null : num;
 }

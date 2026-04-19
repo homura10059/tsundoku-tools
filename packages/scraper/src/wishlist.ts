@@ -5,8 +5,7 @@ import type { RateLimiter } from "./rate-limiter.js";
 const AMAZON_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "ja,en-US;q=0.7,en;q=0.3",
 };
 
@@ -96,10 +95,8 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
     .on("a[href*='_page=']", {
       element(el) {
         const href = el.getAttribute("href");
-        if (href && href.includes("_page=2")) {
-          nextPageUrl = href.startsWith("http")
-            ? href
-            : `https://www.amazon.co.jp${href}`;
+        if (href?.includes("_page=2")) {
+          nextPageUrl = href.startsWith("http") ? href : `https://www.amazon.co.jp${href}`;
         }
       },
     })

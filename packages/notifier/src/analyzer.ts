@@ -38,16 +38,31 @@ export function analyzeProduct(
 
   // Stock change alerts
   if (!current.inStock && previous.inStock && !hasCooldown("out_of_stock")) {
-    alerts.push({ asin, title, productUrl, type: "out_of_stock", oldValue: null, newValue: null, changePct: null });
+    alerts.push({
+      asin,
+      title,
+      productUrl,
+      type: "out_of_stock",
+      oldValue: null,
+      newValue: null,
+      changePct: null,
+    });
   }
   if (current.inStock && !previous.inStock && !hasCooldown("back_in_stock")) {
-    alerts.push({ asin, title, productUrl, type: "back_in_stock", oldValue: null, newValue: null, changePct: null });
+    alerts.push({
+      asin,
+      title,
+      productUrl,
+      type: "back_in_stock",
+      oldValue: null,
+      newValue: null,
+      changePct: null,
+    });
   }
 
   // Price alerts
   if (current.priceJpy !== null && previous.priceJpy !== null) {
-    const changePct =
-      ((current.priceJpy - previous.priceJpy) / previous.priceJpy) * 100;
+    const changePct = ((current.priceJpy - previous.priceJpy) / previous.priceJpy) * 100;
 
     if (changePct <= -thresholds.minPriceDropPct && !hasCooldown("price_drop")) {
       alerts.push({

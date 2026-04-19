@@ -1,5 +1,5 @@
 import type { Wishlist } from "@tsundoku-tools/shared";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { WishlistForm } from "./WishlistForm.js";
 
@@ -9,7 +9,7 @@ export default function WishlistList() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setWishlists(await api.wishlists.list());
@@ -18,11 +18,11 @@ export default function WishlistList() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   async function handleDelete(id: string) {
     if (!confirm("このウィッシュリストを削除しますか?")) return;
@@ -43,6 +43,7 @@ export default function WishlistList() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">ウィッシュリスト</h1>
         <button
+          type="button"
           onClick={() => setShowForm(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
         >
@@ -52,7 +53,10 @@ export default function WishlistList() {
 
       {showForm && (
         <WishlistForm
-          onSuccess={() => { setShowForm(false); load(); }}
+          onSuccess={() => {
+            setShowForm(false);
+            load();
+          }}
           onCancel={() => setShowForm(false)}
         />
       )}
@@ -82,12 +86,14 @@ export default function WishlistList() {
                 </div>
                 <div className="flex gap-2 ml-4 shrink-0">
                   <button
+                    type="button"
                     onClick={() => handleToggle(w)}
                     className="text-xs px-3 py-1 rounded border border-gray-300 hover:bg-gray-100"
                   >
                     {w.isActive ? "停止" : "有効化"}
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleDelete(w.id)}
                     className="text-xs px-3 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50"
                   >
