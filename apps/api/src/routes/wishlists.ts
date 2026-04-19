@@ -1,6 +1,6 @@
-import { createDb, wishlistProducts, wishlists } from "@tsundoku-tools/db";
+import { createDb, products, wishlistProducts, wishlists } from "@tsundoku-tools/db";
 import { extractWishlistId, nowIso } from "@tsundoku-tools/shared";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Bindings } from "../index.js";
 
@@ -79,9 +79,16 @@ wishlistsRouter.delete("/:id", async (c) => {
 
 wishlistsRouter.get("/:id/products", async (c) => {
   const db = createDb(c.env.DB);
-  const rows = await db.query.wishlistProducts.findMany({
-    where: eq(wishlistProducts.wishlistId, c.req.param("id")),
-    with: { asin: true },
-  });
+  const links = await db
+    .select({ asin: wishlistProducts.asin })
+    .from(wishlistProducts)
+    .where(eq(wishlistProducts.wishlistId, c.req.param("id")));
+  if (links.length === 0) return c.json([]);
+  const asins = links.map((l) => l.asin);
+  const rows = await db
+    .select()
+    .from(products)
+    .where(inArray(products.asin, asins))
+    .orderBy(products.title);
   return c.json(rows);
 });

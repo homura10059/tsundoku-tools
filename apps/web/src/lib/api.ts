@@ -31,6 +31,7 @@ export const api = {
         body: JSON.stringify(data),
       }),
     delete: (id: string) => request<void>(`/api/wishlists/${id}`, { method: "DELETE" }),
+    products: (id: string) => request<Product[]>(`/api/wishlists/${id}/products`),
   },
   products: {
     list: () => request<Product[]>("/api/products"),
