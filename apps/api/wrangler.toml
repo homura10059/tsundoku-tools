@@ -1,0 +1,10 @@
+name = "tsundoku-tools-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-18"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tsundoku-tools"
+database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "../../packages/db/src/migrations"
