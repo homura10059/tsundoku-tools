@@ -29,6 +29,13 @@
     }
   },
   "files": {
-    "ignore": ["**/node_modules/**", "**/dist/**", "**/.astro/**", "**/.wrangler/**", "**/.turbo/**", "**/*.astro"]
+    "ignore": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.astro/**",
+      "**/.wrangler/**",
+      "**/.turbo/**",
+      "**/*.astro"
+    ]
   }
 }
