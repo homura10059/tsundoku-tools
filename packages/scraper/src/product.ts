@@ -130,13 +130,13 @@ async function parseProductPage(asin: string, response: Response): Promise<Scrap
   return result;
 }
 
-function parseJpyAmount(text: string): number | null {
+export function parseJpyAmount(text: string): number | null {
   const cleaned = text.replace(/[¥,\s。、]/g, "").trim();
   const num = Number.parseInt(cleaned, 10);
   return Number.isNaN(num) ? null : num;
 }
 
-function parsePoints(text: string): number | null {
+export function parsePoints(text: string): number | null {
   const match = text.match(/(\d[\d,]*)\s*pt/);
   if (!match) return null;
   const num = Number.parseInt(match[1].replace(/,/g, ""), 10);
