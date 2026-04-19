@@ -44,7 +44,10 @@ wishlistsRouter.post("/", async (c) => {
 
 wishlistsRouter.put("/:id", async (c) => {
   const db = createDb(c.env.DB);
-  const body = await c.req.json<Partial<{ label: string; url: string; isActive: boolean; scrapeIntervalMinutes: number }>>();
+  const body =
+    await c.req.json<
+      Partial<{ label: string; url: string; isActive: boolean; scrapeIntervalMinutes: number }>
+    >();
 
   const updates: Partial<typeof wishlists.$inferInsert> = { updatedAt: nowIso() };
   if (body.label !== undefined) updates.label = body.label;
@@ -55,7 +58,8 @@ wishlistsRouter.put("/:id", async (c) => {
     updates.amazonListId = amazonListId;
   }
   if (body.isActive !== undefined) updates.isActive = body.isActive;
-  if (body.scrapeIntervalMinutes !== undefined) updates.scrapeIntervalMinutes = body.scrapeIntervalMinutes;
+  if (body.scrapeIntervalMinutes !== undefined)
+    updates.scrapeIntervalMinutes = body.scrapeIntervalMinutes;
 
   const [row] = await db
     .update(wishlists)

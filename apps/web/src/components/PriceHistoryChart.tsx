@@ -43,9 +43,7 @@ export function PriceHistoryChart({ snapshots }: Props) {
               name === "price" ? [`¥${value.toLocaleString()}`, "価格"] : [`${value}pt`, "ポイント"]
             }
           />
-          <Legend
-            formatter={(value: string) => (value === "price" ? "価格" : "ポイント")}
-          />
+          <Legend formatter={(value: string) => (value === "price" ? "価格" : "ポイント")} />
           <Line
             yAxisId="price"
             type="stepAfter"

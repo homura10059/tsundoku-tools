@@ -31,8 +31,11 @@ export function WishlistForm({ onSuccess, onCancel }: Props) {
       <h2 className="font-semibold mb-4">ウィッシュリストを追加</h2>
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
       <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">名前</label>
+        <label htmlFor="wishlist-label" className="block text-sm font-medium mb-1">
+          名前
+        </label>
         <input
+          id="wishlist-label"
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
@@ -42,8 +45,11 @@ export function WishlistForm({ onSuccess, onCancel }: Props) {
         />
       </div>
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Amazon ウィッシュリスト URL</label>
+        <label htmlFor="wishlist-url" className="block text-sm font-medium mb-1">
+          Amazon ウィッシュリスト URL
+        </label>
         <input
+          id="wishlist-url"
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}

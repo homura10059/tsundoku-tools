@@ -50,10 +50,7 @@ function buildEmbed(alert: PriceAlert): Record<string, unknown> {
   };
 }
 
-export async function sendDiscordAlert(
-  webhookUrl: string,
-  alert: PriceAlert,
-): Promise<void> {
+export async function sendDiscordAlert(webhookUrl: string, alert: PriceAlert): Promise<void> {
   const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

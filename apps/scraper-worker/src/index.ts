@@ -11,7 +11,7 @@ import { analyzeProduct, sendDiscordAlert } from "@tsundoku-tools/notifier";
 import type { AlertThresholds } from "@tsundoku-tools/notifier";
 import { RateLimiter, scrapeProduct, scrapeWishlist } from "@tsundoku-tools/scraper";
 import { buildAmazonProductUrl, nowIso } from "@tsundoku-tools/shared";
-import { eq, desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export type Env = {
   DB: D1Database;
@@ -32,10 +32,7 @@ export default {
       cooldownHours: Number(env.NOTIFY_COOLDOWN_HOURS ?? 6),
     };
 
-    const activeWishlists = await db
-      .select()
-      .from(wishlists)
-      .where(eq(wishlists.isActive, true));
+    const activeWishlists = await db.select().from(wishlists).where(eq(wishlists.isActive, true));
 
     for (const wishlist of activeWishlists) {
       const jobId = crypto.randomUUID();
