@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Style
+
+**TDD (t-wada style)**: Always write tests before implementation. Follow the strict Red → Green → Refactor cycle:
+1. **Red**: Write a failing test that describes the desired behavior
+2. **Green**: Write the minimum code to make the test pass
+3. **Refactor**: Clean up while keeping all tests green
+
+Never write implementation code without a failing test first.
+
 ## Commands
 
 ```bash

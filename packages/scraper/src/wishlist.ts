@@ -31,9 +31,15 @@ export async function scrapeWishlist(
   return allItems;
 }
 
+function getCurrentPage(url: string): number {
+  const match = url.match(/_page=(\d+)/);
+  return match ? Number.parseInt(match[1], 10) : 1;
+}
+
 async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
   const items: WishlistItem[] = [];
   let nextPageUrl: string | null = null;
+  const currentPage = getCurrentPage(url);
 
   class ItemHandler {
     currentAsin: string | null = null;
@@ -95,7 +101,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
     .on("a[href*='_page=']", {
       element(el) {
         const href = el.getAttribute("href");
-        if (href?.includes("_page=2")) {
+        if (href?.includes(`_page=${currentPage + 1}`)) {
           nextPageUrl = href.startsWith("http") ? href : `https://www.amazon.co.jp${href}`;
         }
       },

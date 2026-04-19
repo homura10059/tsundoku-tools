@@ -7,13 +7,17 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "vitest run",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@tsundoku-tools/shared": "workspace:*"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.14.7",
     "@cloudflare/workers-types": "^4.20241218.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.4",
+    "wrangler": "^3.99.0"
   }
 }
