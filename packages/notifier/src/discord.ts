@@ -1,6 +1,13 @@
 import type { PriceAlert } from "@tsundoku-tools/shared";
 import { formatPriceJpy } from "@tsundoku-tools/shared";
 
+export type WorkerException = {
+  jobId: string;
+  wishlistUrl: string;
+  status: "failed" | "partial";
+  errors: string[];
+};
+
 const COLORS = {
   price_drop: 0x00c851,
   price_rise: 0xff4444,
@@ -55,6 +62,44 @@ export async function sendDiscordAlert(webhookUrl: string, alert: PriceAlert): P
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ embeds: [buildEmbed(alert)] }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Discord webhook failed ${response.status}: ${body}`);
+  }
+}
+
+export async function sendDiscordException(
+  webhookUrl: string,
+  exception: WorkerException,
+): Promise<void> {
+  const MAX_ERRORS = 5;
+  const shown = exception.errors.slice(0, MAX_ERRORS);
+  const remaining = exception.errors.length - shown.length;
+
+  const errorLines = shown.map((e) => `• ${e}`).join("\n");
+  const suffix = remaining > 0 ? `\n…他 ${remaining} 件` : "";
+
+  const statusLabel = exception.status === "failed" ? "ジョブ失敗" : "部分失敗";
+  const color = exception.status === "failed" ? 0xff4444 : 0xffbb33;
+
+  const description =
+    `**ジョブID**: ${exception.jobId}\n` +
+    `**ウィッシュリスト**: ${exception.wishlistUrl}\n\n` +
+    `**エラー:**\n${errorLines}${suffix}`;
+
+  const embed = {
+    title: `スクレイパーエラー: ${statusLabel}`,
+    color,
+    description,
+    timestamp: new Date().toISOString(),
+  };
+
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ embeds: [embed] }),
   });
 
   if (!response.ok) {

@@ -1,6 +1,7 @@
 import type { PriceAlert } from "@tsundoku-tools/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendDiscordAlert } from "./discord.js";
+import { sendDiscordAlert, sendDiscordException } from "./discord.js";
+import type { WorkerException } from "./discord.js";
 
 const WEBHOOK_URL = "https://discord.example.com/webhook";
 
@@ -167,5 +168,96 @@ describe("sendDiscordAlert", () => {
       expect(fields[0]).toEqual({ name: "変更前", value: "¥1,200", inline: true });
       expect(fields[1]).toEqual({ name: "変更後", value: "¥1,000", inline: true });
     });
+  });
+});
+
+describe("sendDiscordException", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValue({ ok: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    mockFetch.mockReset();
+  });
+
+  function makeException(overrides: Partial<WorkerException> = {}): WorkerException {
+    return {
+      jobId: "job-uuid-1234",
+      wishlistUrl: "https://www.amazon.co.jp/registry/wishlist/XXXXX",
+      status: "failed",
+      errors: ["B000123456: Error: Failed to fetch product B000123456: 503"],
+      ...overrides,
+    };
+  }
+
+  function getEmbed(): Record<string, unknown> {
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as { embeds: Record<string, unknown>[] };
+    return body.embeds[0];
+  }
+
+  it("sends a POST to the webhook URL with JSON content-type", async () => {
+    await sendDiscordException(WEBHOOK_URL, makeException());
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(WEBHOOK_URL);
+    expect(options.method).toBe("POST");
+    expect((options.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+  });
+
+  it("throws when webhook responds with non-ok status", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve("Internal Server Error"),
+    });
+    await expect(sendDiscordException(WEBHOOK_URL, makeException())).rejects.toThrow(
+      "Discord webhook failed 500: Internal Server Error",
+    );
+  });
+
+  it("uses red color for failed status", async () => {
+    await sendDiscordException(WEBHOOK_URL, makeException({ status: "failed" }));
+    expect(getEmbed().color).toBe(0xff4444);
+  });
+
+  it("uses orange color for partial status", async () => {
+    await sendDiscordException(WEBHOOK_URL, makeException({ status: "partial" }));
+    expect(getEmbed().color).toBe(0xffbb33);
+  });
+
+  it("includes job ID and wishlist URL in description", async () => {
+    await sendDiscordException(WEBHOOK_URL, makeException());
+    const desc = getEmbed().description as string;
+    expect(desc).toContain("job-uuid-1234");
+    expect(desc).toContain("https://www.amazon.co.jp/registry/wishlist/XXXXX");
+  });
+
+  it("lists all errors when 5 or fewer", async () => {
+    const errors = ["err1", "err2", "err3"];
+    await sendDiscordException(WEBHOOK_URL, makeException({ errors }));
+    const desc = getEmbed().description as string;
+    expect(desc).toContain("err1");
+    expect(desc).toContain("err2");
+    expect(desc).toContain("err3");
+  });
+
+  it("truncates to first 5 errors and shows remaining count", async () => {
+    const errors = ["e1", "e2", "e3", "e4", "e5", "e6", "e7"];
+    await sendDiscordException(WEBHOOK_URL, makeException({ errors }));
+    const desc = getEmbed().description as string;
+    expect(desc).toContain("e5");
+    expect(desc).not.toContain("e6");
+    expect(desc).toContain("2");
+  });
+
+  it("includes an ISO timestamp", async () => {
+    await sendDiscordException(WEBHOOK_URL, makeException());
+    const ts = getEmbed().timestamp as string;
+    expect(ts).toBeDefined();
+    expect(Number.isNaN(new Date(ts).getTime())).toBe(false);
   });
 });
