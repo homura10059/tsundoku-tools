@@ -5,7 +5,15 @@ import { api } from "./api.js";
 const BASE = "http://localhost:8787";
 
 function mockFetch(data: unknown, status = 200) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(data), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ),
+  );
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -125,5 +133,20 @@ describe("api.products", () => {
   it("throws on non-ok response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Not Found", { status: 404 })));
     await expect(api.products.get("INVALID")).rejects.toThrow("API error 404");
+  });
+
+  it("throws informative error when server returns HTML with 200 (misconfigured PUBLIC_API_URL)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<!DOCTYPE html><html><body>index</body></html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        }),
+      ),
+    );
+    await expect(api.products.get("B0000001")).rejects.toThrow(
+      /HTMLレスポンスを受信|PUBLIC_API_URL/,
+    );
   });
 });
