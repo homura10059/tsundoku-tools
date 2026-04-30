@@ -10,9 +10,9 @@ database_id = "8dd4cdc0-7860-4bf1-8b49-b2f9d6281780"
 migrations_dir = "../../packages/db/src/migrations"
 
 [vars]
-API_URL = "http://localhost:8787"
-WEB_URL = "http://localhost:4321"
-DISCORD_CLIENT_ID = ""
+API_URL = "https://tsundoku-tools-api.homura-cloudflare.workers.dev"
+WEB_URL = "https://tsundoku-tools-web.pages.dev"
+DISCORD_CLIENT_ID = "802757512134656023"
 
 # Secrets (set via: wrangler secret put DISCORD_CLIENT_SECRET, SESSION_SECRET)
 # DISCORD_CLIENT_SECRET =
