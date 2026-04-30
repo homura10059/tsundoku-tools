@@ -1,12 +1,27 @@
 import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
+import { getToken } from "./auth";
 
 const API_BASE =
   typeof import.meta !== "undefined"
     ? import.meta.env?.PUBLIC_API_URL || "http://localhost:8787"
     : "http://localhost:8787";
 
+type AuthUser = {
+  userId: string;
+  username: string;
+  avatar: string | null;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const token = getToken();
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API error ${res.status}: ${text}`);
@@ -21,6 +36,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  auth: {
+    me: () => request<AuthUser>("/auth/me"),
+    logout: () =>
+      fetch(`${API_BASE}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+      }),
+  },
   wishlists: {
     list: () => request<Wishlist[]>("/api/wishlists"),
     get: (id: string) => request<Wishlist>(`/api/wishlists/${id}`),
