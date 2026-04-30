@@ -79,3 +79,21 @@ export const scrapeJobs = sqliteTable("scrape_jobs", {
   productsScraped: integer("products_scraped").notNull().default(0),
   errors: text("errors"),
 });
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  discordId: text("discord_id").notNull().unique(),
+  username: text("username").notNull(),
+  avatar: text("avatar"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull(),
+});
