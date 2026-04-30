@@ -7,7 +7,7 @@ import {
   wishlistProducts,
   wishlists,
 } from "@tsundoku-tools/db";
-import { analyzeProduct, sendDiscordAlert } from "@tsundoku-tools/notifier";
+import { analyzeProduct, sendDiscordAlert, sendDiscordException } from "@tsundoku-tools/notifier";
 import type { AlertThresholds } from "@tsundoku-tools/notifier";
 import { RateLimiter, scrapeProduct, scrapeWishlist } from "@tsundoku-tools/scraper";
 import { buildAmazonProductUrl, nowIso } from "@tsundoku-tools/shared";
@@ -16,6 +16,7 @@ import { desc, eq } from "drizzle-orm";
 export type Env = {
   DB: D1Database;
   DISCORD_WEBHOOK_URL: string;
+  DISCORD_ERROR_WEBHOOK_URL: string;
   NOTIFY_MIN_PRICE_DROP_PCT: string;
   NOTIFY_MIN_POINT_CHANGE: string;
   NOTIFY_COOLDOWN_HOURS: string;
@@ -136,15 +137,25 @@ export default {
           }
         }
 
+        const finalStatus = errors.length > 0 ? "partial" : "success";
         await db
           .update(scrapeJobs)
           .set({
             finishedAt: nowIso(),
-            status: errors.length > 0 ? "partial" : "success",
+            status: finalStatus,
             productsScraped: scraped,
             errors: errors.length > 0 ? JSON.stringify(errors) : null,
           })
           .where(eq(scrapeJobs.id, jobId));
+
+        if (finalStatus === "partial" && env.DISCORD_ERROR_WEBHOOK_URL) {
+          await sendDiscordException(env.DISCORD_ERROR_WEBHOOK_URL, {
+            jobId,
+            wishlistUrl: wishlist.url,
+            status: "partial",
+            errors,
+          });
+        }
       } catch (err) {
         await db
           .update(scrapeJobs)
@@ -154,6 +165,15 @@ export default {
             errors: JSON.stringify([String(err)]),
           })
           .where(eq(scrapeJobs.id, jobId));
+
+        if (env.DISCORD_ERROR_WEBHOOK_URL) {
+          await sendDiscordException(env.DISCORD_ERROR_WEBHOOK_URL, {
+            jobId,
+            wishlistUrl: wishlist.url,
+            status: "failed",
+            errors: [String(err)],
+          });
+        }
       }
     }
   },
