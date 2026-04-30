@@ -134,6 +134,13 @@ jobs:
         env:
           PUBLIC_API_URL: ${{ secrets.PUBLIC_API_URL }}
 
+      - name: Create Cloudflare Pages project (if not exists)
+        run: pnpm exec wrangler pages project create tsundoku-tools-web --production-branch main || true
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy to Cloudflare Pages
         run: pnpm exec wrangler pages deploy dist --project-name tsundoku-tools-web
         working-directory: apps/web
