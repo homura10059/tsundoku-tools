@@ -6,5 +6,5 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "tsundoku-tools"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "8dd4cdc0-7860-4bf1-8b49-b2f9d6281780"
 migrations_dir = "../../packages/db/src/migrations"
