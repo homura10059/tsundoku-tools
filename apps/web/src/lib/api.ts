@@ -2,7 +2,7 @@ import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
 
 const API_BASE =
   typeof import.meta !== "undefined"
-    ? (import.meta.env?.PUBLIC_API_URL ?? "http://localhost:8787")
+    ? import.meta.env?.PUBLIC_API_URL || "http://localhost:8787"
     : "http://localhost:8787";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -10,6 +10,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API error ${res.status}: ${text}`);
+  }
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `HTMLレスポンスを受信しました。PUBLIC_API_URL の設定を確認してください (現在: ${API_BASE})`,
+    );
   }
   return res.json() as Promise<T>;
 }
