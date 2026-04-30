@@ -1,1 +1,7 @@
+name = "tsundoku-tools-db"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tsundoku-tools"
 database_id = "8dd4cdc0-7860-4bf1-8b49-b2f9d6281780"
+migrations_dir = "src/migrations"
