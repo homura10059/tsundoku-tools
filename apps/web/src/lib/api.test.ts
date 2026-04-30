@@ -1,6 +1,6 @@
 import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "./api.js";
+import { api, normalizeApiBase } from "./api.js";
 
 const BASE = "http://localhost:8787";
 
@@ -38,6 +38,28 @@ const product: Product = {
   createdAt: "2024-01-01T00:00:00Z",
   updatedAt: "2024-01-01T00:00:00Z",
 };
+
+describe("normalizeApiBase", () => {
+  it("returns URL unchanged when it already has https scheme", () => {
+    expect(normalizeApiBase("https://example.workers.dev")).toBe("https://example.workers.dev");
+  });
+
+  it("returns URL unchanged when it already has http scheme", () => {
+    expect(normalizeApiBase("http://localhost:8787")).toBe("http://localhost:8787");
+  });
+
+  it("prepends https:// when scheme is missing", () => {
+    expect(normalizeApiBase("example.workers.dev")).toBe("https://example.workers.dev");
+  });
+
+  it("strips trailing slash", () => {
+    expect(normalizeApiBase("https://example.workers.dev/")).toBe("https://example.workers.dev");
+  });
+
+  it("prepends https:// and strips trailing slash when both apply", () => {
+    expect(normalizeApiBase("example.workers.dev/")).toBe("https://example.workers.dev");
+  });
+});
 
 describe("api.wishlists", () => {
   it("list() calls GET /api/wishlists", async () => {

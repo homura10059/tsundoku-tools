@@ -1,10 +1,17 @@
 import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
 import { getToken } from "./auth";
 
-const API_BASE =
+export function normalizeApiBase(url: string): string {
+  const trimmed = url.replace(/\/$/, "");
+  if (/^https?:\/\//.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+const API_BASE = normalizeApiBase(
   typeof import.meta !== "undefined"
     ? import.meta.env?.PUBLIC_API_URL || "http://localhost:8787"
-    : "http://localhost:8787";
+    : "http://localhost:8787",
+);
 
 type AuthUser = {
   userId: string;
@@ -21,7 +28,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const mergedInit = Object.keys(headers).length > 0 ? { ...init, headers } : init;
+  const res = await fetch(`${API_BASE}${path}`, mergedInit);
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API error ${res.status}: ${text}`);
