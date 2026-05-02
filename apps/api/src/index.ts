@@ -12,6 +12,11 @@ export type Bindings = {
   SESSION_SECRET: string;
   API_URL: string;
   WEB_URL: string;
+  DISCORD_WEBHOOK_URL?: string;
+  DISCORD_ERROR_WEBHOOK_URL?: string;
+  NOTIFY_MIN_PRICE_DROP_PCT?: string;
+  NOTIFY_MIN_POINT_CHANGE?: string;
+  NOTIFY_COOLDOWN_HOURS?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();

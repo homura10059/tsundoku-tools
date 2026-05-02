@@ -10,6 +10,7 @@ export default function WishlistList() {
   const [error, setError] = useState<string | null>(null);
   const [unauthenticated, setUnauthenticated] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [scrapingIds, setScrapingIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     if (!getToken()) {
@@ -44,6 +45,19 @@ export default function WishlistList() {
   async function handleToggle(w: Wishlist) {
     await api.wishlists.update(w.id, { isActive: !w.isActive });
     await load();
+  }
+
+  async function handleScrape(id: string) {
+    setScrapingIds((prev) => new Set([...prev, id]));
+    try {
+      await api.wishlists.scrape(id);
+    } finally {
+      setScrapingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   if (loading) return <div className="text-gray-500">読み込み中…</div>;
@@ -97,6 +111,14 @@ export default function WishlistList() {
                   </p>
                 </div>
                 <div className="flex gap-2 ml-4 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleScrape(w.id)}
+                    disabled={scrapingIds.has(w.id)}
+                    className="text-xs px-3 py-1 rounded border border-blue-300 text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {scrapingIds.has(w.id) ? "スクレイプ中…" : "今すぐスクレイプ"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleToggle(w)}

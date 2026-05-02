@@ -69,6 +69,8 @@ export const api = {
       }),
     delete: (id: string) => request<void>(`/api/wishlists/${id}`, { method: "DELETE" }),
     products: (id: string) => request<Product[]>(`/api/wishlists/${id}/products`),
+    scrape: (id: string) =>
+      request<{ jobId: string }>(`/api/wishlists/${id}/scrape`, { method: "POST" }),
   },
   products: {
     list: () => request<Product[]>("/api/products"),
