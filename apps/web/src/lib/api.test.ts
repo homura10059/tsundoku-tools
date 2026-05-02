@@ -99,7 +99,7 @@ describe("api.wishlists", () => {
   });
 
   it("delete(id) calls DELETE /api/wishlists/:id", async () => {
-    mockFetch(null, 204);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     await api.wishlists.delete("wl-1");
     expect(fetch).toHaveBeenCalledWith(`${BASE}/api/wishlists/wl-1`, { method: "DELETE" });
   });
