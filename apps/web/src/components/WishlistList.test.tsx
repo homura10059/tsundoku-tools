@@ -9,6 +9,7 @@ vi.mock("../lib/api.js", () => ({
       list: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      scrape: vi.fn(),
     },
   },
 }));
@@ -131,5 +132,33 @@ describe("WishlistList", () => {
 
     expect(api.wishlists.delete).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+
+  it("calls api.wishlists.scrape when scrape button is clicked", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.wishlists.list).mockResolvedValue([wishlist]);
+    vi.mocked(api.wishlists.scrape).mockResolvedValue({ jobId: "job-1" });
+
+    render(<WishlistList />);
+    await waitFor(() => screen.getByRole("button", { name: "今すぐスクレイプ" }));
+    await user.click(screen.getByRole("button", { name: "今すぐスクレイプ" }));
+
+    await waitFor(() => {
+      expect(api.wishlists.scrape).toHaveBeenCalledWith("wl-1");
+    });
+  });
+
+  it("shows loading state while scrape is in progress", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.wishlists.list).mockResolvedValue([wishlist]);
+    vi.mocked(api.wishlists.scrape).mockReturnValue(new Promise(() => {}));
+
+    render(<WishlistList />);
+    await waitFor(() => screen.getByRole("button", { name: "今すぐスクレイプ" }));
+    await user.click(screen.getByRole("button", { name: "今すぐスクレイプ" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "スクレイプ中…" })).toBeDisabled();
+    });
   });
 });

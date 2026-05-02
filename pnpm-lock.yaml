@@ -26,6 +26,12 @@ importers:
       '@tsundoku-tools/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@tsundoku-tools/notifier':
+        specifier: workspace:*
+        version: link:../../packages/notifier
+      '@tsundoku-tools/scraper':
+        specifier: workspace:*
+        version: link:../../packages/scraper
       '@tsundoku-tools/shared':
         specifier: workspace:*
         version: link:../../packages/shared

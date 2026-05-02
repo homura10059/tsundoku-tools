@@ -110,6 +110,13 @@ describe("api.wishlists", () => {
     expect(fetch).toHaveBeenCalledWith(`${BASE}/api/wishlists/wl-1/products`, undefined);
     expect(result).toEqual([product]);
   });
+
+  it("scrape(id) calls POST /api/wishlists/:id/scrape", async () => {
+    mockFetch({ jobId: "job-1" }, 202);
+    const result = await api.wishlists.scrape("wl-1");
+    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/wishlists/wl-1/scrape`, { method: "POST" });
+    expect(result).toEqual({ jobId: "job-1" });
+  });
 });
 
 describe("api.products", () => {

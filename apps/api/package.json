@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@tsundoku-tools/db": "workspace:*",
+    "@tsundoku-tools/notifier": "workspace:*",
+    "@tsundoku-tools/scraper": "workspace:*",
     "@tsundoku-tools/shared": "workspace:*",
     "drizzle-orm": "^0.38.3",
     "hono": "^4.6.20"
