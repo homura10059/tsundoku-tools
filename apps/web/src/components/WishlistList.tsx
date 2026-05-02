@@ -11,6 +11,7 @@ export default function WishlistList() {
   const [unauthenticated, setUnauthenticated] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [scrapingIds, setScrapingIds] = useState<Set<string>>(new Set());
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!getToken()) {
@@ -48,9 +49,12 @@ export default function WishlistList() {
   }
 
   async function handleScrape(id: string) {
+    setScrapeError(null);
     setScrapingIds((prev) => new Set([...prev, id]));
     try {
       await api.wishlists.scrape(id);
+    } catch (e) {
+      setScrapeError(`スクレイプに失敗しました: ${String(e)}`);
     } finally {
       setScrapingIds((prev) => {
         const next = new Set(prev);
@@ -85,6 +89,12 @@ export default function WishlistList() {
           }}
           onCancel={() => setShowForm(false)}
         />
+      )}
+
+      {scrapeError && (
+        <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
+          {scrapeError}
+        </div>
       )}
 
       {wishlists.length === 0 ? (

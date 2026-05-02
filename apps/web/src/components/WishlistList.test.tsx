@@ -161,4 +161,32 @@ describe("WishlistList", () => {
       expect(screen.getByRole("button", { name: "スクレイプ中…" })).toBeDisabled();
     });
   });
+
+  it("shows error message when scrape fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.wishlists.list).mockResolvedValue([wishlist]);
+    vi.mocked(api.wishlists.scrape).mockRejectedValue(new Error("API error 401: Unauthorized"));
+
+    render(<WishlistList />);
+    await waitFor(() => screen.getByRole("button", { name: "今すぐスクレイプ" }));
+    await user.click(screen.getByRole("button", { name: "今すぐスクレイプ" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/スクレイプに失敗しました/)).toBeInTheDocument();
+    });
+  });
+
+  it("re-enables scrape button after failure", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.wishlists.list).mockResolvedValue([wishlist]);
+    vi.mocked(api.wishlists.scrape).mockRejectedValue(new Error("Network error"));
+
+    render(<WishlistList />);
+    await waitFor(() => screen.getByRole("button", { name: "今すぐスクレイプ" }));
+    await user.click(screen.getByRole("button", { name: "今すぐスクレイプ" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "今すぐスクレイプ" })).not.toBeDisabled();
+    });
+  });
 });
