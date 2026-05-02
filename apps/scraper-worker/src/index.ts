@@ -23,6 +23,10 @@ export type Env = {
 };
 
 export default {
+  async fetch(_request: Request, _env: Env, _ctx: ExecutionContext): Promise<Response> {
+    return new Response("Not Found", { status: 404 });
+  },
+
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     const db = createDb(env.DB);
     const rateLimiter = new RateLimiter(1);
