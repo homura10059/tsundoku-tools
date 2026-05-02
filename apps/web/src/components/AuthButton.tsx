@@ -3,6 +3,7 @@ import { API_BASE, api } from "../lib/api";
 import { clearToken, consumeTokenFromUrl, getToken } from "../lib/auth";
 
 type User = {
+  userId: string;
   username: string;
   avatar: string | null;
 };
@@ -61,7 +62,7 @@ export default function AuthButton() {
   }
 
   const avatarUrl = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.username}/${user.avatar}.png?size=32`
+    ? `https://cdn.discordapp.com/avatars/${user.userId}/${user.avatar}.png?size=32`
     : null;
 
   return (
