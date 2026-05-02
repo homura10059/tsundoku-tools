@@ -1,6 +1,7 @@
 import type { Product } from "@tsundoku-tools/shared";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
+import { getToken } from "../lib/auth.js";
 
 export default function WishlistProducts() {
   const wishlistId =
@@ -11,21 +12,34 @@ export default function WishlistProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unauthenticated, setUnauthenticated] = useState(false);
 
   useEffect(() => {
     if (!wishlistId) {
       setLoading(false);
       return;
     }
+    if (!getToken()) {
+      setUnauthenticated(true);
+      setLoading(false);
+      return;
+    }
     api.wishlists
       .products(wishlistId)
       .then(setProducts)
-      .catch((e) => setError(String(e)))
+      .catch((e) => {
+        if (String(e).includes("401")) {
+          setUnauthenticated(true);
+        } else {
+          setError(String(e));
+        }
+      })
       .finally(() => setLoading(false));
   }, [wishlistId]);
 
   if (!wishlistId) return null;
   if (loading) return <div className="text-gray-500">読み込み中…</div>;
+  if (unauthenticated) return <div className="text-gray-500">ログインが必要です。</div>;
   if (error) return <div className="text-red-600">エラー: {error}</div>;
 
   return (

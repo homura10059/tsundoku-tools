@@ -1,16 +1,11 @@
 import { useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { API_BASE, api } from "../lib/api";
 import { clearToken, consumeTokenFromUrl, getToken } from "../lib/auth";
 
 type User = {
   username: string;
   avatar: string | null;
 };
-
-const API_BASE =
-  typeof import.meta !== "undefined"
-    ? import.meta.env?.PUBLIC_API_URL || "http://localhost:8787"
-    : "http://localhost:8787";
 
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);

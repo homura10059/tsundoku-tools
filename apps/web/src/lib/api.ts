@@ -7,7 +7,7 @@ export function normalizeApiBase(url: string): string {
   return `https://${trimmed}`;
 }
 
-const API_BASE = normalizeApiBase(
+export const API_BASE = normalizeApiBase(
   typeof import.meta !== "undefined"
     ? import.meta.env?.PUBLIC_API_URL || "http://localhost:8787"
     : "http://localhost:8787",

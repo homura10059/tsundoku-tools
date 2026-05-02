@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import type { Product } from "@tsundoku-tools/shared";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/api.js", () => ({
   api: {
@@ -10,7 +10,12 @@ vi.mock("../lib/api.js", () => ({
   },
 }));
 
+vi.mock("../lib/auth.js", () => ({
+  getToken: vi.fn(),
+}));
+
 import { api } from "../lib/api.js";
+import { getToken } from "../lib/auth.js";
 import WishlistProducts from "./WishlistProducts.js";
 
 const products: Product[] = [
@@ -37,6 +42,10 @@ const products: Product[] = [
 function setSearch(search: string) {
   window.history.replaceState({}, "", `/products${search}`);
 }
+
+beforeEach(() => {
+  vi.mocked(getToken).mockReturnValue("test-token");
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -99,6 +108,27 @@ describe("WishlistProducts", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/エラー:/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows login prompt and skips API call when no token", async () => {
+    setSearch("?wishlistId=wl-1");
+    vi.mocked(getToken).mockReturnValue(null);
+    render(<WishlistProducts />);
+    await waitFor(() => {
+      expect(screen.getByText(/ログインが必要です/)).toBeInTheDocument();
+    });
+    expect(api.wishlists.products).not.toHaveBeenCalled();
+  });
+
+  it("shows login prompt when API returns 401", async () => {
+    setSearch("?wishlistId=wl-1");
+    vi.mocked(api.wishlists.products).mockRejectedValue(
+      new Error('API error 401: {"error":"Unauthorized"}'),
+    );
+    render(<WishlistProducts />);
+    await waitFor(() => {
+      expect(screen.getByText(/ログインが必要です/)).toBeInTheDocument();
     });
   });
 });

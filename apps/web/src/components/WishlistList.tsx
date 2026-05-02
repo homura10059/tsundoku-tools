@@ -1,20 +1,31 @@
 import type { Wishlist } from "@tsundoku-tools/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api.js";
+import { getToken } from "../lib/auth.js";
 import { WishlistForm } from "./WishlistForm.js";
 
 export default function WishlistList() {
   const [wishlists, setWishlists] = useState<Wishlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unauthenticated, setUnauthenticated] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
   const load = useCallback(async () => {
+    if (!getToken()) {
+      setUnauthenticated(true);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setWishlists(await api.wishlists.list());
     } catch (e) {
-      setError(String(e));
+      if (String(e).includes("401")) {
+        setUnauthenticated(true);
+      } else {
+        setError(String(e));
+      }
     } finally {
       setLoading(false);
     }
@@ -36,6 +47,7 @@ export default function WishlistList() {
   }
 
   if (loading) return <div className="text-gray-500">読み込み中…</div>;
+  if (unauthenticated) return <div className="text-gray-500">ログインが必要です。</div>;
   if (error) return <div className="text-red-600">エラー: {error}</div>;
 
   return (
