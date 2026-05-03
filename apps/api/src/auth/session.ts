@@ -50,7 +50,7 @@ export async function validateSession(
 
   if (!row) return null;
   if (row.session.expiresAt < new Date().toISOString()) return null;
-  return { userId: row.user.id, username: row.user.username, avatar: row.user.avatar };
+  return { userId: row.user.discordId, username: row.user.username, avatar: row.user.avatar };
 }
 
 export async function deleteSession(db: Database, sessionId: string): Promise<void> {
