@@ -1,4 +1,4 @@
-import type { AmazonListId } from "@tsundoku-tools/shared";
+import { toAmazonListId } from "@tsundoku-tools/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RateLimiter } from "./rate-limiter.js";
 import { scrapeWishlist } from "./wishlist.js";
@@ -7,7 +7,7 @@ const noOpLimiter = {
   acquire: vi.fn().mockResolvedValue(undefined),
 } as unknown as RateLimiter;
 
-const LIST_ID = "TESTLISTID" as AmazonListId;
+const LIST_ID = toAmazonListId("TESTLISTID");
 const WISHLIST_URL = "https://www.amazon.co.jp/wishlist/ls/TESTLISTID";
 
 afterEach(() => {

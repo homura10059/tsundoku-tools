@@ -1,8 +1,8 @@
-import type { Asin } from "@tsundoku-tools/shared";
+import { toAsin } from "@tsundoku-tools/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseJpyAmount, parsePoints, scrapeProduct } from "./product.js";
 
-const TEST_ASIN = "B0TEST1234" as Asin;
+const TEST_ASIN = toAsin("B0TEST1234");
 import type { RateLimiter } from "./rate-limiter.js";
 
 // ─── parseJpyAmount ───────────────────────────────────────────────────────────

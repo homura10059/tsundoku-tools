@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import type { Asin, Product } from "@tsundoku-tools/shared";
+import type { Product } from "@tsundoku-tools/shared";
+import { toAsin } from "@tsundoku-tools/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/api.js", () => ({
@@ -18,20 +19,23 @@ import { api } from "../lib/api.js";
 import { getToken } from "../lib/auth.js";
 import WishlistProducts from "./WishlistProducts.js";
 
+const ASIN_A = toAsin("B000000001");
+const ASIN_B = toAsin("B000000002");
+
 const products: Product[] = [
   {
-    asin: "B0000001" as Asin,
+    asin: ASIN_A,
     title: "テスト商品 A",
-    url: "https://www.amazon.co.jp/dp/B0000001",
+    url: "https://www.amazon.co.jp/dp/B000000001",
     imageUrl: "https://example.com/img/A.jpg",
     category: "本",
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z",
   },
   {
-    asin: "B0000002" as Asin,
+    asin: ASIN_B,
     title: "テスト商品 B",
-    url: "https://www.amazon.co.jp/dp/B0000002",
+    url: "https://www.amazon.co.jp/dp/B000000002",
     imageUrl: null,
     category: null,
     createdAt: "2024-01-01T00:00:00Z",
@@ -85,9 +89,9 @@ describe("WishlistProducts", () => {
 
     await waitFor(() => {
       const linkA = screen.getByRole("link", { name: "テスト商品 A" });
-      expect(linkA).toHaveAttribute("href", "/products?asin=B0000001");
+      expect(linkA).toHaveAttribute("href", `/products?asin=${ASIN_A}`);
       const linkB = screen.getByRole("link", { name: "テスト商品 B" });
-      expect(linkB).toHaveAttribute("href", "/products?asin=B0000002");
+      expect(linkB).toHaveAttribute("href", `/products?asin=${ASIN_B}`);
     });
   });
 

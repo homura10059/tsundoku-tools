@@ -1,5 +1,5 @@
 import type { AmazonListId, Asin, WishlistItem } from "@tsundoku-tools/shared";
-import { buildAmazonProductUrl, buildAmazonWishlistUrl } from "@tsundoku-tools/shared";
+import { buildAmazonProductUrl, buildAmazonWishlistUrl, toAsin } from "@tsundoku-tools/shared";
 import type { RateLimiter } from "./rate-limiter.js";
 
 const AMAZON_HEADERS = {
@@ -72,7 +72,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
                   imageUrl: state.currentImageUrl,
                 });
               }
-              state.currentAsin = raw as Asin;
+              state.currentAsin = toAsin(raw);
               state.currentTitle = "";
               state.currentImageUrl = null;
             }

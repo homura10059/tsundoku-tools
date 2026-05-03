@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AmazonListId, Wishlist, WishlistId } from "@tsundoku-tools/shared";
+import type { Wishlist } from "@tsundoku-tools/shared";
+import { toAmazonListId, toWishlistId } from "@tsundoku-tools/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/api.js", () => ({
@@ -22,9 +23,11 @@ import { api } from "../lib/api.js";
 import { getToken } from "../lib/auth.js";
 import WishlistList from "./WishlistList.js";
 
+const WL_ID = toWishlistId("00000000-0000-0000-0000-000000000001");
+
 const wishlist: Wishlist = {
-  id: "wl-1" as WishlistId,
-  amazonListId: "LISTID" as AmazonListId,
+  id: WL_ID,
+  amazonListId: toAmazonListId("LISTID"),
   label: "技術書",
   url: "https://www.amazon.co.jp/wishlist/ls/LISTID",
   isActive: true,
@@ -101,7 +104,7 @@ describe("WishlistList", () => {
     await user.click(screen.getByRole("button", { name: "停止" }));
 
     await waitFor(() => {
-      expect(api.wishlists.update).toHaveBeenCalledWith("wl-1", { isActive: false });
+      expect(api.wishlists.update).toHaveBeenCalledWith(WL_ID, { isActive: false });
     });
   });
 
@@ -116,7 +119,7 @@ describe("WishlistList", () => {
     await user.click(screen.getByRole("button", { name: "削除" }));
 
     await waitFor(() => {
-      expect(api.wishlists.delete).toHaveBeenCalledWith("wl-1");
+      expect(api.wishlists.delete).toHaveBeenCalledWith(WL_ID);
     });
     vi.unstubAllGlobals();
   });
@@ -144,7 +147,7 @@ describe("WishlistList", () => {
     await user.click(screen.getByRole("button", { name: "今すぐスクレイプ" }));
 
     await waitFor(() => {
-      expect(api.wishlists.scrape).toHaveBeenCalledWith("wl-1");
+      expect(api.wishlists.scrape).toHaveBeenCalledWith(WL_ID);
     });
   });
 
