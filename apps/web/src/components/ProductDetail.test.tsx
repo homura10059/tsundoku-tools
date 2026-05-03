@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import type { PriceSnapshot, Product } from "@tsundoku-tools/shared";
+import type { Asin, PriceSnapshot, Product } from "@tsundoku-tools/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/api.js", () => ({
@@ -15,7 +15,7 @@ import { api } from "../lib/api.js";
 import ProductDetail from "./ProductDetail.js";
 
 const product: Product = {
-  asin: "B0000001",
+  asin: "B0000001" as Asin,
   title: "テスト書籍",
   url: "https://www.amazon.co.jp/dp/B0000001",
   imageUrl: "https://example.com/img.jpg",
@@ -26,7 +26,7 @@ const product: Product = {
 
 const snapshot: PriceSnapshot = {
   id: "snap-1",
-  asin: "B0000001",
+  asin: "B0000001" as Asin,
   scrapedAt: "2024-01-15T00:00:00Z",
   priceJpy: 1500,
   listPriceJpy: 2000,

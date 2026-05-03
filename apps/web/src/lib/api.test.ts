@@ -1,4 +1,11 @@
-import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
+import type {
+  AmazonListId,
+  Asin,
+  PriceSnapshot,
+  Product,
+  Wishlist,
+  WishlistId,
+} from "@tsundoku-tools/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, normalizeApiBase } from "./api.js";
 
@@ -19,8 +26,8 @@ function mockFetch(data: unknown, status = 200) {
 afterEach(() => vi.unstubAllGlobals());
 
 const wishlist: Wishlist = {
-  id: "wl-1",
-  amazonListId: "LISTID",
+  id: "wl-1" as WishlistId,
+  amazonListId: "LISTID" as AmazonListId,
   label: "Tech Books",
   url: "https://www.amazon.co.jp/wishlist/ls/LISTID",
   isActive: true,
@@ -30,7 +37,7 @@ const wishlist: Wishlist = {
 };
 
 const product: Product = {
-  asin: "B0000001",
+  asin: "B0000001" as Asin,
   title: "Test Product",
   url: "https://www.amazon.co.jp/dp/B0000001",
   imageUrl: null,
@@ -137,7 +144,7 @@ describe("api.products", () => {
   it("snapshots(asin) calls GET /api/products/:asin/snapshots?limit=500", async () => {
     const snapshot: PriceSnapshot = {
       id: "snap-1",
-      asin: "B0000001",
+      asin: "B0000001" as Asin,
       scrapedAt: "2024-01-01T00:00:00Z",
       priceJpy: 1000,
       listPriceJpy: 1200,

@@ -1,3 +1,4 @@
+import type { AmazonListId } from "@tsundoku-tools/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RateLimiter } from "./rate-limiter.js";
 import { scrapeWishlist } from "./wishlist.js";
@@ -6,6 +7,7 @@ const noOpLimiter = {
   acquire: vi.fn().mockResolvedValue(undefined),
 } as unknown as RateLimiter;
 
+const LIST_ID = "TESTLISTID" as AmazonListId;
 const WISHLIST_URL = "https://www.amazon.co.jp/wishlist/ls/TESTLISTID";
 
 afterEach(() => {
@@ -35,7 +37,7 @@ describe("scrapeWishlist", () => {
     </body></html>`;
     vi.stubGlobal("fetch", () => Promise.resolve(new Response(html)));
 
-    const items = await scrapeWishlist(WISHLIST_URL, noOpLimiter);
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
 
     expect(items).toHaveLength(2);
     expect(items[0].asin).toBe("B0ITEM1001");
@@ -46,10 +48,19 @@ describe("scrapeWishlist", () => {
     expect(items[1].imageUrl).toBeNull();
   });
 
+  it("fetches the canonical wishlist URL built from the list ID", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("<html><body></body></html>"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await scrapeWishlist(LIST_ID, noOpLimiter);
+
+    expect(fetchMock).toHaveBeenCalledWith(WISHLIST_URL, expect.any(Object));
+  });
+
   it("returns an empty array for a wishlist with no items", async () => {
     vi.stubGlobal("fetch", () => Promise.resolve(new Response("<html><body></body></html>")));
 
-    const items = await scrapeWishlist(WISHLIST_URL, noOpLimiter);
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
 
     expect(items).toHaveLength(0);
   });
@@ -63,7 +74,7 @@ describe("scrapeWishlist", () => {
     </body></html>`;
     vi.stubGlobal("fetch", () => Promise.resolve(new Response(html)));
 
-    const items = await scrapeWishlist(WISHLIST_URL, noOpLimiter);
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
 
     expect(items).toHaveLength(1);
     expect(items[0].asin).toBe("B0VALID001");
@@ -78,7 +89,7 @@ describe("scrapeWishlist", () => {
     </body></html>`;
     vi.stubGlobal("fetch", () => Promise.resolve(new Response(html)));
 
-    const items = await scrapeWishlist(WISHLIST_URL, noOpLimiter);
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
 
     expect(items).toHaveLength(1);
     expect(items[0].asin).toBe("B0VALID001");
@@ -102,7 +113,7 @@ describe("scrapeWishlist", () => {
         ),
     );
 
-    const items = await scrapeWishlist(WISHLIST_URL, noOpLimiter);
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
 
     expect(items).toHaveLength(2);
     expect(items[0].asin).toBe("B0PAGE1001");
@@ -133,7 +144,7 @@ describe("scrapeWishlist", () => {
       }),
     );
 
-    const items = await scrapeWishlist(WISHLIST_URL, noOpLimiter);
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
 
     expect(items).toHaveLength(3);
     expect(items[0].asin).toBe("B0PAGE1001");

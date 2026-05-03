@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import type { PriceSnapshot } from "@tsundoku-tools/shared";
+import type { Asin, PriceSnapshot } from "@tsundoku-tools/shared";
 import { describe, expect, it } from "vitest";
 import { PriceHistoryChart } from "./PriceHistoryChart.js";
 
 const snapshots: PriceSnapshot[] = [
   {
     id: "snap-1",
-    asin: "B0000001",
+    asin: "B0000001" as Asin,
     scrapedAt: "2024-01-01T00:00:00Z",
     priceJpy: 1000,
     listPriceJpy: 1200,
@@ -21,7 +21,7 @@ const snapshots: PriceSnapshot[] = [
   },
   {
     id: "snap-2",
-    asin: "B0000001",
+    asin: "B0000001" as Asin,
     scrapedAt: "2024-01-15T00:00:00Z",
     priceJpy: 900,
     listPriceJpy: 1200,

@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import type { Product } from "@tsundoku-tools/shared";
+import type { Asin, Product } from "@tsundoku-tools/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/api.js", () => ({
@@ -20,7 +20,7 @@ import WishlistProducts from "./WishlistProducts.js";
 
 const products: Product[] = [
   {
-    asin: "B0000001",
+    asin: "B0000001" as Asin,
     title: "テスト商品 A",
     url: "https://www.amazon.co.jp/dp/B0000001",
     imageUrl: "https://example.com/img/A.jpg",
@@ -29,7 +29,7 @@ const products: Product[] = [
     updatedAt: "2024-01-01T00:00:00Z",
   },
   {
-    asin: "B0000002",
+    asin: "B0000002" as Asin,
     title: "テスト商品 B",
     url: "https://www.amazon.co.jp/dp/B0000002",
     imageUrl: null,

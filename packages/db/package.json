@@ -13,6 +13,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply tsundoku-tools --remote"
   },
   "dependencies": {
+    "@tsundoku-tools/shared": "workspace:*",
     "drizzle-orm": "^0.38.3"
   },
   "devDependencies": {

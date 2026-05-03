@@ -10,7 +10,7 @@ import {
 import { analyzeProduct, sendDiscordAlert, sendDiscordException } from "@tsundoku-tools/notifier";
 import type { AlertThresholds } from "@tsundoku-tools/notifier";
 import { RateLimiter, scrapeProduct, scrapeWishlist } from "@tsundoku-tools/scraper";
-import { buildAmazonProductUrl, buildAmazonWishlistUrl, nowIso } from "@tsundoku-tools/shared";
+import { buildAmazonProductUrl, nowIso } from "@tsundoku-tools/shared";
 import { desc, eq } from "drizzle-orm";
 
 export type Env = {
@@ -54,10 +54,7 @@ export default {
       let scraped = 0;
 
       try {
-        const items = await scrapeWishlist(
-          buildAmazonWishlistUrl(wishlist.amazonListId),
-          rateLimiter,
-        );
+        const items = await scrapeWishlist(wishlist.amazonListId, rateLimiter);
 
         for (const item of items) {
           try {

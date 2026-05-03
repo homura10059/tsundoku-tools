@@ -1,8 +1,9 @@
+import type { AmazonListId, Asin, WishlistId } from "@tsundoku-tools/shared";
 import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 export const wishlists = sqliteTable("wishlists", {
-  id: text("id").primaryKey(),
-  amazonListId: text("amazon_list_id").notNull().unique(),
+  id: text("id").primaryKey().$type<WishlistId>(),
+  amazonListId: text("amazon_list_id").notNull().unique().$type<AmazonListId>(),
   label: text("label").notNull(),
   url: text("url").notNull(),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
@@ -12,7 +13,7 @@ export const wishlists = sqliteTable("wishlists", {
 });
 
 export const products = sqliteTable("products", {
-  asin: text("asin").primaryKey(),
+  asin: text("asin").primaryKey().$type<Asin>(),
   title: text("title").notNull(),
   url: text("url").notNull(),
   imageUrl: text("image_url"),
@@ -27,10 +28,12 @@ export const wishlistProducts = sqliteTable(
     id: text("id").primaryKey(),
     wishlistId: text("wishlist_id")
       .notNull()
-      .references(() => wishlists.id, { onDelete: "cascade" }),
+      .references(() => wishlists.id, { onDelete: "cascade" })
+      .$type<WishlistId>(),
     asin: text("asin")
       .notNull()
-      .references(() => products.asin, { onDelete: "cascade" }),
+      .references(() => products.asin, { onDelete: "cascade" })
+      .$type<Asin>(),
     addedAt: text("added_at").notNull(),
     removedAt: text("removed_at"),
   },
@@ -41,7 +44,8 @@ export const priceSnapshots = sqliteTable("price_snapshots", {
   id: text("id").primaryKey(),
   asin: text("asin")
     .notNull()
-    .references(() => products.asin, { onDelete: "cascade" }),
+    .references(() => products.asin, { onDelete: "cascade" })
+    .$type<Asin>(),
   scrapedAt: text("scraped_at").notNull(),
   priceJpy: integer("price_jpy"),
   listPriceJpy: integer("list_price_jpy"),
@@ -59,7 +63,8 @@ export const notifications = sqliteTable("notifications", {
   id: text("id").primaryKey(),
   asin: text("asin")
     .notNull()
-    .references(() => products.asin, { onDelete: "cascade" }),
+    .references(() => products.asin, { onDelete: "cascade" })
+    .$type<Asin>(),
   notificationType: text("notification_type").notNull(),
   oldValue: real("old_value"),
   newValue: real("new_value"),
@@ -72,7 +77,8 @@ export const scrapeJobs = sqliteTable("scrape_jobs", {
   id: text("id").primaryKey(),
   wishlistId: text("wishlist_id")
     .notNull()
-    .references(() => wishlists.id, { onDelete: "cascade" }),
+    .references(() => wishlists.id, { onDelete: "cascade" })
+    .$type<WishlistId>(),
   startedAt: text("started_at").notNull(),
   finishedAt: text("finished_at"),
   status: text("status").notNull().default("running"),

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Wishlist } from "@tsundoku-tools/shared";
+import type { AmazonListId, Wishlist, WishlistId } from "@tsundoku-tools/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/api.js", () => ({
@@ -23,8 +23,8 @@ import { getToken } from "../lib/auth.js";
 import WishlistList from "./WishlistList.js";
 
 const wishlist: Wishlist = {
-  id: "wl-1",
-  amazonListId: "LISTID",
+  id: "wl-1" as WishlistId,
+  amazonListId: "LISTID" as AmazonListId,
   label: "技術書",
   url: "https://www.amazon.co.jp/wishlist/ls/LISTID",
   isActive: true,
