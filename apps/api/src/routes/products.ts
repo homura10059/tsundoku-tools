@@ -1,4 +1,5 @@
 import { createDb, notifications, priceSnapshots, products } from "@tsundoku-tools/db";
+import { toAsin } from "@tsundoku-tools/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Bindings } from "../index.js";
@@ -16,7 +17,7 @@ productsRouter.get("/:asin", async (c) => {
   const row = await db
     .select()
     .from(products)
-    .where(eq(products.asin, c.req.param("asin")))
+    .where(eq(products.asin, toAsin(c.req.param("asin"))))
     .get();
   if (!row) return c.json({ error: "Not found" }, 404);
   return c.json(row);
@@ -28,7 +29,7 @@ productsRouter.get("/:asin/snapshots", async (c) => {
   const rows = await db
     .select()
     .from(priceSnapshots)
-    .where(eq(priceSnapshots.asin, c.req.param("asin")))
+    .where(eq(priceSnapshots.asin, toAsin(c.req.param("asin"))))
     .orderBy(priceSnapshots.scrapedAt)
     .limit(Math.min(limit, 1000));
   return c.json(rows);
@@ -39,7 +40,7 @@ productsRouter.get("/:asin/notifications", async (c) => {
   const rows = await db
     .select()
     .from(notifications)
-    .where(eq(notifications.asin, c.req.param("asin")))
+    .where(eq(notifications.asin, toAsin(c.req.param("asin"))))
     .orderBy(notifications.sentAt);
   return c.json(rows);
 });

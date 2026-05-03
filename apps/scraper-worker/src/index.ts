@@ -54,7 +54,7 @@ export default {
       let scraped = 0;
 
       try {
-        const items = await scrapeWishlist(wishlist.url, rateLimiter);
+        const items = await scrapeWishlist(wishlist.amazonListId, rateLimiter);
 
         for (const item of items) {
           try {

@@ -1,4 +1,4 @@
-import type { PriceAlert, PriceSnapshot } from "@tsundoku-tools/shared";
+import type { Asin, PriceAlert, PriceSnapshot } from "@tsundoku-tools/shared";
 
 export type AlertThresholds = {
   minPriceDropPct: number;
@@ -12,7 +12,7 @@ export type RecentNotification = {
 };
 
 export function analyzeProduct(
-  asin: string,
+  asin: Asin,
   title: string,
   productUrl: string,
   snapshots: Pick<

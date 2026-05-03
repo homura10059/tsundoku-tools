@@ -1,6 +1,15 @@
+// ── Branded primitive types ────────────────────────────────────────────────
+/** Internal UUID assigned to a wishlist row */
+export type WishlistId = string & { readonly __name: "WishlistId" };
+/** Amazon's own list identifier extracted from the wishlist URL */
+export type AmazonListId = string & { readonly __name: "AmazonListId" };
+/** Amazon Standard Identification Number for a product */
+export type Asin = string & { readonly __name: "Asin" };
+
+// ── Domain types ───────────────────────────────────────────────────────────
 export type Wishlist = {
-  id: string;
-  amazonListId: string;
+  id: WishlistId;
+  amazonListId: AmazonListId;
   label: string;
   url: string;
   isActive: boolean;
@@ -10,7 +19,7 @@ export type Wishlist = {
 };
 
 export type Product = {
-  asin: string;
+  asin: Asin;
   title: string;
   url: string;
   imageUrl: string | null;
@@ -21,7 +30,7 @@ export type Product = {
 
 export type PriceSnapshot = {
   id: string;
-  asin: string;
+  asin: Asin;
   scrapedAt: string;
   priceJpy: number | null;
   listPriceJpy: number | null;
@@ -38,7 +47,7 @@ export type PriceSnapshot = {
 export type ScrapeResult = Omit<PriceSnapshot, "id" | "scrapedAt">;
 
 export type WishlistItem = {
-  asin: string;
+  asin: Asin;
   title: string;
   url: string;
   imageUrl: string | null;
@@ -53,7 +62,7 @@ export type NotificationType =
   | "out_of_stock";
 
 export type PriceAlert = {
-  asin: string;
+  asin: Asin;
   title: string;
   productUrl: string;
   type: NotificationType;
@@ -66,8 +75,8 @@ export type ScrapeJobStatus = "running" | "success" | "partial" | "failed";
 
 export type WishlistProduct = {
   id: string;
-  wishlistId: string;
-  asin: string;
+  wishlistId: WishlistId;
+  asin: Asin;
   addedAt: string;
   removedAt: string | null;
 };

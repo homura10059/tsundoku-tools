@@ -1,5 +1,5 @@
-import type { WishlistItem } from "@tsundoku-tools/shared";
-import { buildAmazonProductUrl } from "@tsundoku-tools/shared";
+import type { AmazonListId, Asin, WishlistItem } from "@tsundoku-tools/shared";
+import { buildAmazonProductUrl, buildAmazonWishlistUrl, toAsin } from "@tsundoku-tools/shared";
 import type { RateLimiter } from "./rate-limiter.js";
 
 const AMAZON_HEADERS = {
@@ -15,11 +15,11 @@ type WishlistPageResult = {
 };
 
 export async function scrapeWishlist(
-  url: string,
+  amazonListId: AmazonListId,
   rateLimiter: RateLimiter,
 ): Promise<WishlistItem[]> {
   const allItems: WishlistItem[] = [];
-  let nextUrl: string | null = url;
+  let nextUrl: string | null = buildAmazonWishlistUrl(amazonListId);
 
   while (nextUrl) {
     await rateLimiter.acquire();
@@ -42,7 +42,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
   const currentPage = getCurrentPage(url);
 
   class ItemHandler {
-    currentAsin: string | null = null;
+    currentAsin: Asin | null = null;
     currentTitle = "";
     currentImageUrl: string | null = null;
     inTitle = false;
@@ -62,8 +62,8 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
         if (params) {
           try {
             const parsed = JSON.parse(params) as { itemExternalId?: string };
-            const asin = parsed.itemExternalId?.replace("ASIN:", "") ?? null;
-            if (asin && /^[A-Z0-9]{10}$/.test(asin)) {
+            const raw = parsed.itemExternalId?.replace("ASIN:", "") ?? null;
+            if (raw && /^[A-Z0-9]{10}$/.test(raw)) {
               if (state.currentAsin && state.currentTitle) {
                 items.push({
                   asin: state.currentAsin,
@@ -72,7 +72,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
                   imageUrl: state.currentImageUrl,
                 });
               }
-              state.currentAsin = asin;
+              state.currentAsin = toAsin(raw);
               state.currentTitle = "";
               state.currentImageUrl = null;
             }

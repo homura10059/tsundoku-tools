@@ -1,4 +1,4 @@
-import type { ScrapeResult } from "@tsundoku-tools/shared";
+import type { Asin, ScrapeResult } from "@tsundoku-tools/shared";
 import type { RateLimiter } from "./rate-limiter.js";
 
 const AMAZON_HEADERS = {
@@ -9,7 +9,7 @@ const AMAZON_HEADERS = {
 };
 
 export async function scrapeProduct(
-  asin: string,
+  asin: Asin,
   url: string,
   rateLimiter: RateLimiter,
 ): Promise<ScrapeResult> {
@@ -23,7 +23,7 @@ export async function scrapeProduct(
   return parseProductPage(asin, response);
 }
 
-async function parseProductPage(asin: string, response: Response): Promise<ScrapeResult> {
+async function parseProductPage(asin: Asin, response: Response): Promise<ScrapeResult> {
   const result: ScrapeResult = {
     asin,
     priceJpy: null,

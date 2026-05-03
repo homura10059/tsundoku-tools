@@ -10,7 +10,12 @@ import {
 import { analyzeProduct, sendDiscordAlert, sendDiscordException } from "@tsundoku-tools/notifier";
 import type { AlertThresholds } from "@tsundoku-tools/notifier";
 import { RateLimiter, scrapeProduct, scrapeWishlist } from "@tsundoku-tools/scraper";
-import { buildAmazonProductUrl, extractWishlistId, nowIso } from "@tsundoku-tools/shared";
+import {
+  buildAmazonProductUrl,
+  extractWishlistId,
+  nowIso,
+  toWishlistId,
+} from "@tsundoku-tools/shared";
 import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Bindings } from "../index.js";
@@ -28,7 +33,7 @@ wishlistsRouter.get("/:id", async (c) => {
   const row = await db
     .select()
     .from(wishlists)
-    .where(eq(wishlists.id, c.req.param("id")))
+    .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
     .get();
   if (!row) return c.json({ error: "Not found" }, 404);
   return c.json(row);
@@ -43,7 +48,7 @@ wishlistsRouter.post("/", async (c) => {
 
   const db = createDb(c.env.DB);
   const now = nowIso();
-  const id = crypto.randomUUID();
+  const id = toWishlistId(crypto.randomUUID());
 
   const [row] = await db
     .insert(wishlists)
@@ -75,7 +80,7 @@ wishlistsRouter.put("/:id", async (c) => {
   const [row] = await db
     .update(wishlists)
     .set(updates)
-    .where(eq(wishlists.id, c.req.param("id")))
+    .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
     .returning();
 
   if (!row) return c.json({ error: "Not found" }, 404);
@@ -84,7 +89,7 @@ wishlistsRouter.put("/:id", async (c) => {
 
 wishlistsRouter.delete("/:id", async (c) => {
   const db = createDb(c.env.DB);
-  await db.delete(wishlists).where(eq(wishlists.id, c.req.param("id")));
+  await db.delete(wishlists).where(eq(wishlists.id, toWishlistId(c.req.param("id"))));
   return c.body(null, 204);
 });
 
@@ -93,7 +98,7 @@ wishlistsRouter.get("/:id/products", async (c) => {
   const links = await db
     .select({ asin: wishlistProducts.asin })
     .from(wishlistProducts)
-    .where(eq(wishlistProducts.wishlistId, c.req.param("id")));
+    .where(eq(wishlistProducts.wishlistId, toWishlistId(c.req.param("id"))));
   if (links.length === 0) return c.json([]);
   const asins = links.map((l) => l.asin);
   const rows = await db
@@ -109,7 +114,7 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
   const wishlist = await db
     .select()
     .from(wishlists)
-    .where(eq(wishlists.id, c.req.param("id")))
+    .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
     .get();
   if (!wishlist) return c.json({ error: "Not found" }, 404);
 
@@ -137,7 +142,7 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
       let scraped = 0;
 
       try {
-        const items = await scrapeWishlist(wishlist.url, rateLimiter);
+        const items = await scrapeWishlist(wishlist.amazonListId, rateLimiter);
 
         for (const item of items) {
           try {
