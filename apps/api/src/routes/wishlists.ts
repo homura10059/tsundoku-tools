@@ -10,7 +10,12 @@ import {
 import { analyzeProduct, sendDiscordAlert, sendDiscordException } from "@tsundoku-tools/notifier";
 import type { AlertThresholds } from "@tsundoku-tools/notifier";
 import { RateLimiter, scrapeProduct, scrapeWishlist } from "@tsundoku-tools/scraper";
-import { buildAmazonProductUrl, extractWishlistId, nowIso } from "@tsundoku-tools/shared";
+import {
+  buildAmazonProductUrl,
+  buildAmazonWishlistUrl,
+  extractWishlistId,
+  nowIso,
+} from "@tsundoku-tools/shared";
 import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Bindings } from "../index.js";
@@ -137,7 +142,10 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
       let scraped = 0;
 
       try {
-        const items = await scrapeWishlist(wishlist.url, rateLimiter);
+        const items = await scrapeWishlist(
+          buildAmazonWishlistUrl(wishlist.amazonListId),
+          rateLimiter,
+        );
 
         for (const item of items) {
           try {
