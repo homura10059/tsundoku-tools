@@ -129,6 +129,16 @@ describe("scrapeWishlist", () => {
     expect(fetchMock).toHaveBeenCalledWith(WISHLIST_URL, expect.any(Object));
   });
 
+  it("sends a mobile User-Agent header", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("<html><body></body></html>"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await scrapeWishlist(LIST_ID, noOpLimiter);
+
+    const [, options] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }];
+    expect(options.headers["User-Agent"]).toContain("iPhone");
+  });
+
   it("returns an empty array for a wishlist with no items", async () => {
     vi.stubGlobal("fetch", () => Promise.resolve(new Response("<html><body></body></html>")));
 
