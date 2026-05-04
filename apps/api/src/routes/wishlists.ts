@@ -165,17 +165,30 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
       const errors: string[] = [];
       let scraped = 0;
 
+      let emptyPageDebugHtml: string | null = null;
+
       try {
-        const items = await scrapeWishlist(wishlist.amazonListId, rateLimiter);
+        const items = await scrapeWishlist(
+          wishlist.amazonListId,
+          rateLimiter,
+          (_url, debugHtml) => {
+            emptyPageDebugHtml = debugHtml;
+          },
+        );
 
         if (items.length === 0) {
+          const errorMessages = ["ウィッシュリストにアイテムが見つかりませんでした"];
+          if (emptyPageDebugHtml) {
+            errorMessages.push(`HTML snapshot:\n${emptyPageDebugHtml}`);
+          }
+
           await db
             .update(scrapeJobs)
             .set({
               finishedAt: nowIso(),
               status: "failed",
               productsScraped: 0,
-              errors: JSON.stringify(["ウィッシュリストにアイテムが見つかりませんでした"]),
+              errors: JSON.stringify(errorMessages),
             })
             .where(eq(scrapeJobs.id, jobId));
 
@@ -184,7 +197,7 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
               jobId,
               wishlistUrl: wishlist.url,
               status: "failed",
-              errors: ["ウィッシュリストにアイテムが見つかりませんでした"],
+              errors: errorMessages,
             });
           }
           return;
