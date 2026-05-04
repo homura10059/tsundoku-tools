@@ -168,6 +168,28 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
       try {
         const items = await scrapeWishlist(wishlist.amazonListId, rateLimiter);
 
+        if (items.length === 0) {
+          await db
+            .update(scrapeJobs)
+            .set({
+              finishedAt: nowIso(),
+              status: "failed",
+              productsScraped: 0,
+              errors: JSON.stringify(["ウィッシュリストにアイテムが見つかりませんでした"]),
+            })
+            .where(eq(scrapeJobs.id, jobId));
+
+          if (env.DISCORD_ERROR_WEBHOOK_URL) {
+            await sendDiscordException(env.DISCORD_ERROR_WEBHOOK_URL, {
+              jobId,
+              wishlistUrl: wishlist.url,
+              status: "failed",
+              errors: ["ウィッシュリストにアイテムが見つかりませんでした"],
+            });
+          }
+          return;
+        }
+
         for (const item of items) {
           try {
             const url = buildAmazonProductUrl(item.asin);

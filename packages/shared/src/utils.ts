@@ -44,7 +44,7 @@ export function extractAsinFromUrl(url: string): Asin | null {
 }
 
 export function extractWishlistId(url: string): AmazonListId | null {
-  const match = url.match(/\/wishlist\/(?:ls\/)?([A-Z0-9]+)/i);
+  const match = url.match(/\/(?:hz\/)?wishlist\/(?:ls\/)?([A-Z0-9]+)/i);
   const raw = match?.[1] ?? null;
   return raw ? toAmazonListId(raw) : null;
 }
@@ -58,5 +58,5 @@ export function buildAmazonProductUrl(asin: Asin): string {
 }
 
 export function buildAmazonWishlistUrl(listId: AmazonListId): string {
-  return `https://www.amazon.co.jp/wishlist/ls/${listId}`;
+  return `https://www.amazon.co.jp/hz/wishlist/ls/${listId}`;
 }
