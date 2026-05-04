@@ -12,19 +12,25 @@ const AMAZON_HEADERS = {
 type WishlistPageResult = {
   items: WishlistItem[];
   nextPageUrl: string | null;
+  debugHtml: string | null;
 };
 
 export async function scrapeWishlist(
   amazonListId: AmazonListId,
   rateLimiter: RateLimiter,
+  onEmptyPage?: (url: string, debugHtml: string) => void,
 ): Promise<WishlistItem[]> {
   const allItems: WishlistItem[] = [];
   let nextUrl: string | null = buildAmazonWishlistUrl(amazonListId);
 
   while (nextUrl) {
     await rateLimiter.acquire();
-    const result = await fetchWishlistPage(nextUrl);
+    const currentUrl = nextUrl;
+    const result = await fetchWishlistPage(currentUrl);
     allItems.push(...result.items);
+    if (result.items.length === 0 && onEmptyPage && result.debugHtml) {
+      onEmptyPage(currentUrl, result.debugHtml);
+    }
     nextUrl = result.nextPageUrl;
   }
 
@@ -40,6 +46,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
   const items: WishlistItem[] = [];
   let nextPageUrl: string | null = null;
   const currentPage = getCurrentPage(url);
+  let debugHtml: string | null = null;
 
   class ItemHandler {
     currentAsin: Asin | null = null;
@@ -55,6 +62,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
   if (!response.ok) {
     throw new Error(`Failed to fetch wishlist: ${response.status}`);
   }
+  const debugClone = response.clone();
 
   await new HTMLRewriter()
     .on("[data-reposition-action-params]", {
@@ -136,5 +144,10 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
     });
   }
 
-  return { items, nextPageUrl };
+  if (items.length === 0) {
+    const fullHtml = await debugClone.text();
+    debugHtml = fullHtml.slice(0, 1500);
+  }
+
+  return { items, nextPageUrl, debugHtml };
 }
