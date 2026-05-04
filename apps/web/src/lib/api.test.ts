@@ -1,6 +1,7 @@
 import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
 import { toAmazonListId, toAsin, toWishlistId } from "@tsundoku-tools/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiProblemError } from "./api-error.js";
 import { api, normalizeApiBase } from "./api.js";
 
 const BASE = "http://localhost:8787";
@@ -164,9 +165,48 @@ describe("api.products", () => {
     expect(result).toEqual([snapshot]);
   });
 
-  it("throws on non-ok response", async () => {
+  it("throws on non-ok response with plain text body", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Not Found", { status: 404 })));
     await expect(api.products.get("INVALID")).rejects.toThrow("API error 404");
+  });
+
+  it("throws ApiProblemError when server returns application/problem+json", async () => {
+    const problem = {
+      type: "about:blank",
+      title: "Not Found",
+      status: 404,
+      detail: "The product was not found.",
+      instance: "/api/products/INVALID",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(problem), {
+          status: 404,
+          headers: { "Content-Type": "application/problem+json" },
+        }),
+      ),
+    );
+    const err = await api.products.get("INVALID").catch((e) => e);
+    expect(err).toBeInstanceOf(ApiProblemError);
+    expect(err.problem).toEqual(problem);
+    expect(err.message).toBe("The product was not found.");
+  });
+
+  it("ApiProblemError.message falls back to title when detail is absent", async () => {
+    const problem = { type: "about:blank", title: "Unauthorized", status: 401 };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(problem), {
+          status: 401,
+          headers: { "Content-Type": "application/problem+json" },
+        }),
+      ),
+    );
+    const err = await api.products.get("X").catch((e) => e);
+    expect(err).toBeInstanceOf(ApiProblemError);
+    expect(err.message).toBe("Unauthorized");
   });
 
   it("throws informative error when server returns HTML with 200 (misconfigured PUBLIC_API_URL)", async () => {

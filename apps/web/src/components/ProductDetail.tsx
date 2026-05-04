@@ -1,6 +1,7 @@
 import type { PriceSnapshot, Product } from "@tsundoku-tools/shared";
 import { formatPriceJpy } from "@tsundoku-tools/shared";
 import { useEffect, useState } from "react";
+import { ApiProblemError } from "../lib/api-error.js";
 import { api } from "../lib/api.js";
 import { PriceHistoryChart } from "./PriceHistoryChart.js";
 
@@ -23,7 +24,9 @@ export default function ProductDetail() {
         setProduct(p);
         setSnapshots(s);
       })
-      .catch((e) => setError(String(e)))
+      .catch((e) =>
+        setError(e instanceof ApiProblemError ? (e.problem.detail ?? e.problem.title) : String(e)),
+      )
       .finally(() => setLoading(false));
   }, [asin]);
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ApiProblemError } from "../lib/api-error.js";
 import { api } from "../lib/api.js";
 
 type Props = {
@@ -20,7 +21,9 @@ export function WishlistForm({ onSuccess, onCancel }: Props) {
       await api.wishlists.create({ label, url });
       onSuccess();
     } catch (err) {
-      setError(String(err));
+      setError(
+        err instanceof ApiProblemError ? (err.problem.detail ?? err.problem.title) : String(err),
+      );
     } finally {
       setSubmitting(false);
     }

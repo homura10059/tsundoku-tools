@@ -1,5 +1,6 @@
 import type { Wishlist } from "@tsundoku-tools/shared";
 import { useCallback, useEffect, useState } from "react";
+import { ApiProblemError } from "../lib/api-error.js";
 import { api } from "../lib/api.js";
 import { getToken } from "../lib/auth.js";
 import { Toast } from "./Toast.js";
@@ -24,10 +25,10 @@ export default function WishlistList() {
       setLoading(true);
       setWishlists(await api.wishlists.list());
     } catch (e) {
-      if (String(e).includes("401")) {
+      if (e instanceof ApiProblemError && e.problem.status === 401) {
         setUnauthenticated(true);
       } else {
-        setError(String(e));
+        setError(e instanceof ApiProblemError ? (e.problem.detail ?? e.problem.title) : String(e));
       }
     } finally {
       setLoading(false);
@@ -55,7 +56,9 @@ export default function WishlistList() {
     try {
       await api.wishlists.scrape(id);
     } catch (e) {
-      setScrapeError(`スクレイプに失敗しました: ${String(e)}`);
+      const detail =
+        e instanceof ApiProblemError ? (e.problem.detail ?? e.problem.title) : String(e);
+      setScrapeError(`スクレイプに失敗しました: ${detail}`);
     } finally {
       setScrapingIds((prev) => {
         const next = new Set(prev);

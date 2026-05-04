@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { Wishlist } from "@tsundoku-tools/shared";
 import { toAmazonListId, toWishlistId } from "@tsundoku-tools/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiProblemError } from "../lib/api-error.js";
 
 vi.mock("../lib/api.js", () => ({
   api: {
@@ -86,7 +87,7 @@ describe("WishlistList", () => {
 
   it("shows login prompt when API returns 401", async () => {
     vi.mocked(api.wishlists.list).mockRejectedValue(
-      new Error('API error 401: {"error":"Unauthorized"}'),
+      new ApiProblemError({ type: "about:blank", title: "Unauthorized", status: 401 }),
     );
     render(<WishlistList />);
     await waitFor(() => {
@@ -168,7 +169,14 @@ describe("WishlistList", () => {
   it("shows error message when scrape fails", async () => {
     const user = userEvent.setup();
     vi.mocked(api.wishlists.list).mockResolvedValue([wishlist]);
-    vi.mocked(api.wishlists.scrape).mockRejectedValue(new Error("API error 401: Unauthorized"));
+    vi.mocked(api.wishlists.scrape).mockRejectedValue(
+      new ApiProblemError({
+        type: "about:blank",
+        title: "Not Found",
+        status: 404,
+        detail: "Wishlist not found.",
+      }),
+    );
 
     render(<WishlistList />);
     await waitFor(() => screen.getByRole("button", { name: "今すぐスクレイプ" }));

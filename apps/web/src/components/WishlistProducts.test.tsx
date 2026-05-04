@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import type { Product } from "@tsundoku-tools/shared";
 import { toAsin } from "@tsundoku-tools/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiProblemError } from "../lib/api-error.js";
 
 vi.mock("../lib/api.js", () => ({
   api: {
@@ -128,7 +129,7 @@ describe("WishlistProducts", () => {
   it("shows login prompt when API returns 401", async () => {
     setSearch("?wishlistId=wl-1");
     vi.mocked(api.wishlists.products).mockRejectedValue(
-      new Error('API error 401: {"error":"Unauthorized"}'),
+      new ApiProblemError({ type: "about:blank", title: "Unauthorized", status: 401 }),
     );
     render(<WishlistProducts />);
     await waitFor(() => {

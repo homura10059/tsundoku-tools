@@ -1,4 +1,5 @@
 import type { PriceSnapshot, Product, Wishlist } from "@tsundoku-tools/shared";
+import { ApiProblemError } from "./api-error.js";
 import { getToken } from "./auth";
 
 export function normalizeApiBase(url: string): string {
@@ -31,6 +32,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const mergedInit = Object.keys(headers).length > 0 ? { ...init, headers } : init;
   const res = await fetch(`${API_BASE}${path}`, mergedInit);
   if (!res.ok) {
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/problem+json")) {
+      throw new ApiProblemError(await res.json());
+    }
     const text = await res.text();
     throw new Error(`API error ${res.status}: ${text}`);
   }

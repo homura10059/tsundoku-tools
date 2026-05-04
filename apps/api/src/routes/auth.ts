@@ -4,6 +4,7 @@ import { exchangeCode, getDiscordAuthUrl, getDiscordUser } from "../auth/discord
 import { createSession, deleteSession, upsertUser, validateSession } from "../auth/session.js";
 import { generateState, verifyState } from "../auth/state.js";
 import type { Bindings } from "../index.js";
+import { problem } from "../lib/problem.js";
 
 const DISCORD_CALLBACK_PATH = "/auth/discord/callback";
 
@@ -21,12 +22,12 @@ authRouter.get("/discord/callback", async (c) => {
   const state = c.req.query("state");
 
   if (!code || !state) {
-    return c.json({ error: "Missing code or state" }, 400);
+    return problem(c, 400, "Bad Request", "Missing code or state.");
   }
 
   const valid = await verifyState(state, c.env.SESSION_SECRET);
   if (!valid) {
-    return c.json({ error: "Invalid state" }, 400);
+    return problem(c, 400, "Bad Request", "Invalid state.");
   }
 
   const redirectUri = `${c.env.API_URL}${DISCORD_CALLBACK_PATH}`;
@@ -47,7 +48,7 @@ authRouter.get("/discord/callback", async (c) => {
     webUrl.searchParams.set("token", sessionId);
     return c.redirect(webUrl.toString());
   } catch {
-    return c.json({ error: "Authentication failed" }, 500);
+    return problem(c, 500, "Internal Server Error", "Authentication failed.");
   }
 });
 
@@ -56,13 +57,13 @@ authRouter.get("/me", async (c) => {
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
   if (!token) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return problem(c, 401, "Unauthorized");
   }
 
   const db = createDb(c.env.DB);
   const user = await validateSession(db, token);
   if (!user) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return problem(c, 401, "Unauthorized");
   }
 
   return c.json({ userId: user.userId, username: user.username, avatar: user.avatar });

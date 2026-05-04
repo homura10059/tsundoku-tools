@@ -3,6 +3,7 @@ import type { MiddlewareHandler } from "hono";
 import { createMiddleware } from "hono/factory";
 import { validateSession } from "../auth/session.js";
 import type { Bindings } from "../index.js";
+import { problem } from "../lib/problem.js";
 
 type AuthVariables = {
   userId: string;
@@ -18,14 +19,14 @@ export const requireAuth: MiddlewareHandler<{
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
   if (!token) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return problem(c, 401, "Unauthorized");
   }
 
   const db = createDb(c.env.DB);
   const user = await validateSession(db, token);
 
   if (!user) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return problem(c, 401, "Unauthorized");
   }
 
   c.set("userId", user.userId);
