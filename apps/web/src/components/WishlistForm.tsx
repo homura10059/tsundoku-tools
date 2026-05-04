@@ -58,7 +58,7 @@ export function WishlistForm({ onSuccess, onCancel }: Props) {
           onChange={(e) => setUrl(e.target.value)}
           required
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-          placeholder="https://www.amazon.co.jp/wishlist/ls/..."
+          placeholder="https://www.amazon.co.jp/hz/wishlist/ls/..."
         />
       </div>
       <div className="flex gap-2">

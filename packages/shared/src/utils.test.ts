@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { toAmazonListId, toAsin, toWishlistId } from "./utils.js";
+import {
+  buildAmazonWishlistUrl,
+  extractWishlistId,
+  toAmazonListId,
+  toAsin,
+  toWishlistId,
+} from "./utils.js";
 
 describe("toWishlistId", () => {
   it("returns a WishlistId for a valid UUID", () => {
@@ -69,5 +75,28 @@ describe("toAsin", () => {
 
   it("throws for a string containing special characters", () => {
     expect(() => toAsin("B0000-0001")).toThrow("Invalid Asin");
+  });
+});
+
+describe("buildAmazonWishlistUrl", () => {
+  it("returns a /hz/wishlist/ls/ URL for a given list ID", () => {
+    const id = toAmazonListId("TESTLISTID");
+    expect(buildAmazonWishlistUrl(id)).toBe("https://www.amazon.co.jp/hz/wishlist/ls/TESTLISTID");
+  });
+});
+
+describe("extractWishlistId", () => {
+  it("extracts list ID from /hz/wishlist/ls/ URL", () => {
+    expect(extractWishlistId("https://www.amazon.co.jp/hz/wishlist/ls/TESTLISTID")).toBe(
+      "TESTLISTID",
+    );
+  });
+
+  it("extracts list ID from /wishlist/ls/ URL (backward compat)", () => {
+    expect(extractWishlistId("https://www.amazon.co.jp/wishlist/ls/TESTLISTID")).toBe("TESTLISTID");
+  });
+
+  it("returns null for a URL with no wishlist path", () => {
+    expect(extractWishlistId("https://www.amazon.co.jp/dp/B000000001")).toBeNull();
   });
 });
