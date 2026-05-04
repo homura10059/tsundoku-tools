@@ -46,6 +46,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
     currentTitle = "";
     currentImageUrl: string | null = null;
     inTitle = false;
+    inImageContainer = false;
   }
 
   const state = new ItemHandler();
@@ -75,6 +76,7 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
               state.currentAsin = toAsin(raw);
               state.currentTitle = "";
               state.currentImageUrl = null;
+              state.inImageContainer = false;
             }
           } catch {
             // ignore malformed JSON
@@ -82,7 +84,8 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
         }
       },
     })
-    .on("span[id^='itemName_']", {
+    // Matches both <span id="itemName_"> (old) and <a id="itemName_"> (current Amazon Japan)
+    .on("[id^='itemName_']", {
       element() {
         state.inTitle = true;
       },
@@ -93,9 +96,24 @@ async function fetchWishlistPage(url: string): Promise<WishlistPageResult> {
         }
       },
     })
-    .on("img[id^='itemImage_']", {
+    // Matches <img id="itemImage_"> (old) and <div id="itemImage_"> (current Amazon Japan)
+    .on("[id^='itemImage_']", {
       element(el) {
-        state.currentImageUrl = el.getAttribute("src");
+        const src = el.getAttribute("data-src") ?? el.getAttribute("src");
+        if (src) {
+          state.currentImageUrl = src;
+        } else {
+          // div container: wait for the child <img>
+          state.inImageContainer = true;
+        }
+      },
+    })
+    .on("img", {
+      element(el) {
+        if (state.inImageContainer) {
+          state.currentImageUrl = el.getAttribute("data-src") ?? el.getAttribute("src") ?? null;
+          state.inImageContainer = false;
+        }
       },
     })
     .on("a[href*='_page=']", {
