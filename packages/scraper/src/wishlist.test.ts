@@ -70,6 +70,34 @@ describe("scrapeWishlist with new Amazon HTML structure", () => {
   });
 });
 
+// ─── scrapeWishlist: onEmptyPage callback ────────────────────────────────────
+
+describe("scrapeWishlist: onEmptyPage callback", () => {
+  it("calls onEmptyPage with URL and HTML snapshot when page yields no items", async () => {
+    const html = "<html><body><!-- wishlist empty --></body></html>";
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response(html)));
+
+    const calls: { url: string; debugHtml: string }[] = [];
+    await scrapeWishlist(LIST_ID, noOpLimiter, (url, debugHtml) => {
+      calls.push({ url, debugHtml });
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(WISHLIST_URL);
+    expect(calls[0].debugHtml).toContain("<!-- wishlist empty -->");
+  });
+
+  it("does not call onEmptyPage when items are found", async () => {
+    const html = `<html><body>${newItemHtml("B0ITEM1001", "商品1")}</body></html>`;
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response(html)));
+
+    const onEmptyPage = vi.fn();
+    await scrapeWishlist(LIST_ID, noOpLimiter, onEmptyPage);
+
+    expect(onEmptyPage).not.toHaveBeenCalled();
+  });
+});
+
 // ─── scrapeWishlist (旧 HTML 構造: <span id="itemName_"> / <img id="itemImage_">) ───
 
 describe("scrapeWishlist", () => {
