@@ -8,7 +8,7 @@ const noOpLimiter = {
 } as unknown as RateLimiter;
 
 const LIST_ID = toAmazonListId("TESTLISTID");
-const WISHLIST_URL = "https://www.amazon.co.jp/wishlist/ls/TESTLISTID";
+const WISHLIST_URL = "https://www.amazon.co.jp/hz/wishlist/ls/TESTLISTID";
 
 afterEach(() => {
   vi.unstubAllGlobals();
