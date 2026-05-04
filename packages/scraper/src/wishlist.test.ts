@@ -120,8 +120,6 @@ describe("scrapeWishlist", () => {
     expect(items[1].asin).toBe("B0PAGE2001");
   });
 
-  // This test exposes the pagination bug: the current code only matches _page=2 links,
-  // so it stops after page 2 even when page 3 exists.
   it("follows pagination across 3+ pages", async () => {
     const page1 = `<html><body>
       ${itemHtml("B0PAGE1001", "ページ1商品", undefined, "001")}
