@@ -92,9 +92,7 @@ export default function WishlistList() {
         />
       )}
 
-      {scrapeError && (
-        <Toast message={scrapeError} onDismiss={() => setScrapeError(null)} />
-      )}
+      {scrapeError && <Toast message={scrapeError} onDismiss={() => setScrapeError(null)} />}
 
       {wishlists.length === 0 ? (
         <p className="text-gray-500">ウィッシュリストがまだありません。</p>
