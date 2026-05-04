@@ -1,5 +1,5 @@
 import { createDb, notifications, priceSnapshots, products } from "@tsundoku-tools/db";
-import { toAsin, type Asin } from "@tsundoku-tools/shared";
+import { type Asin, toAsin } from "@tsundoku-tools/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Bindings } from "../index.js";
@@ -21,11 +21,7 @@ productsRouter.get("/:asin", async (c) => {
     return problem(c, 400, "Bad Request", "Invalid ASIN format.");
   }
   const db = createDb(c.env.DB);
-  const row = await db
-    .select()
-    .from(products)
-    .where(eq(products.asin, asin))
-    .get();
+  const row = await db.select().from(products).where(eq(products.asin, asin)).get();
   if (!row) return problem(c, 404, "Not Found", "Product not found.");
   return c.json(row);
 });
