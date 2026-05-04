@@ -45,7 +45,7 @@ export default function AuthButton() {
       <button
         type="button"
         onClick={handleLogin}
-        className="ml-auto flex items-center gap-2 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+        className="flex items-center gap-2 rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 whitespace-nowrap"
       >
         <svg
           width="20"
@@ -66,17 +66,17 @@ export default function AuthButton() {
     : null;
 
   return (
-    <div className="ml-auto flex items-center gap-3">
+    <div className="flex items-center gap-3 whitespace-nowrap">
       <span className="flex items-center gap-2 text-sm text-gray-700">
         {avatarUrl && (
           <img src={avatarUrl} alt="" width={24} height={24} className="rounded-full" />
         )}
-        {user.username}
+        <span className="hidden sm:inline">{user.username}</span>
       </span>
       <button
         type="button"
         onClick={handleLogout}
-        className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+        className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 whitespace-nowrap"
       >
         ログアウト
       </button>
