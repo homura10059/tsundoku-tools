@@ -119,6 +119,14 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
   if (!wishlist) return c.json({ error: "Not found" }, 404);
 
   const jobId = crypto.randomUUID();
+  const startedAt = nowIso();
+  await db.insert(scrapeJobs).values({
+    id: jobId,
+    wishlistId: wishlist.id,
+    startedAt,
+    status: "running",
+  });
+
   const env = c.env;
 
   c.executionCtx.waitUntil(
@@ -129,14 +137,6 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
         minPointChange: Number(env.NOTIFY_MIN_POINT_CHANGE ?? 50),
         cooldownHours: Number(env.NOTIFY_COOLDOWN_HOURS ?? 6),
       };
-
-      const startedAt = nowIso();
-      await db.insert(scrapeJobs).values({
-        id: jobId,
-        wishlistId: wishlist.id,
-        startedAt,
-        status: "running",
-      });
 
       const errors: string[] = [];
       let scraped = 0;

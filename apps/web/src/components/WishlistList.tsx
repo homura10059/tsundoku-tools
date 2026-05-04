@@ -2,6 +2,7 @@ import type { Wishlist } from "@tsundoku-tools/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { getToken } from "../lib/auth.js";
+import { Toast } from "./Toast.js";
 import { WishlistForm } from "./WishlistForm.js";
 
 export default function WishlistList() {
@@ -92,9 +93,7 @@ export default function WishlistList() {
       )}
 
       {scrapeError && (
-        <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
-          {scrapeError}
-        </div>
+        <Toast message={scrapeError} onDismiss={() => setScrapeError(null)} />
       )}
 
       {wishlists.length === 0 ? (
