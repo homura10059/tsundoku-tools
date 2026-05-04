@@ -11,6 +11,7 @@ import { analyzeProduct, sendDiscordAlert, sendDiscordException } from "@tsundok
 import type { AlertThresholds } from "@tsundoku-tools/notifier";
 import { RateLimiter, scrapeProduct, scrapeWishlist } from "@tsundoku-tools/scraper";
 import {
+  type WishlistId,
   buildAmazonProductUrl,
   extractWishlistId,
   nowIso,
@@ -30,12 +31,14 @@ wishlistsRouter.get("/", async (c) => {
 });
 
 wishlistsRouter.get("/:id", async (c) => {
+  let wishlistId: WishlistId;
+  try {
+    wishlistId = toWishlistId(c.req.param("id"));
+  } catch {
+    return problem(c, 400, "Bad Request", "Invalid wishlist ID format.");
+  }
   const db = createDb(c.env.DB);
-  const row = await db
-    .select()
-    .from(wishlists)
-    .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
-    .get();
+  const row = await db.select().from(wishlists).where(eq(wishlists.id, wishlistId)).get();
   if (!row) return problem(c, 404, "Not Found", "Wishlist not found.");
   return c.json(row);
 });
@@ -60,6 +63,12 @@ wishlistsRouter.post("/", async (c) => {
 });
 
 wishlistsRouter.put("/:id", async (c) => {
+  let wishlistId: WishlistId;
+  try {
+    wishlistId = toWishlistId(c.req.param("id"));
+  } catch {
+    return problem(c, 400, "Bad Request", "Invalid wishlist ID format.");
+  }
   const db = createDb(c.env.DB);
   const body =
     await c.req.json<
@@ -81,7 +90,7 @@ wishlistsRouter.put("/:id", async (c) => {
   const [row] = await db
     .update(wishlists)
     .set(updates)
-    .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
+    .where(eq(wishlists.id, wishlistId))
     .returning();
 
   if (!row) return problem(c, 404, "Not Found", "Wishlist not found.");
@@ -89,17 +98,29 @@ wishlistsRouter.put("/:id", async (c) => {
 });
 
 wishlistsRouter.delete("/:id", async (c) => {
+  let wishlistId: WishlistId;
+  try {
+    wishlistId = toWishlistId(c.req.param("id"));
+  } catch {
+    return problem(c, 400, "Bad Request", "Invalid wishlist ID format.");
+  }
   const db = createDb(c.env.DB);
-  await db.delete(wishlists).where(eq(wishlists.id, toWishlistId(c.req.param("id"))));
+  await db.delete(wishlists).where(eq(wishlists.id, wishlistId));
   return c.body(null, 204);
 });
 
 wishlistsRouter.get("/:id/products", async (c) => {
+  let wishlistId: WishlistId;
+  try {
+    wishlistId = toWishlistId(c.req.param("id"));
+  } catch {
+    return problem(c, 400, "Bad Request", "Invalid wishlist ID format.");
+  }
   const db = createDb(c.env.DB);
   const links = await db
     .select({ asin: wishlistProducts.asin })
     .from(wishlistProducts)
-    .where(eq(wishlistProducts.wishlistId, toWishlistId(c.req.param("id"))));
+    .where(eq(wishlistProducts.wishlistId, wishlistId));
   if (links.length === 0) return c.json([]);
   const asins = links.map((l) => l.asin);
   const rows = await db
@@ -111,12 +132,14 @@ wishlistsRouter.get("/:id/products", async (c) => {
 });
 
 wishlistsRouter.post("/:id/scrape", async (c) => {
+  let wishlistId: WishlistId;
+  try {
+    wishlistId = toWishlistId(c.req.param("id"));
+  } catch {
+    return problem(c, 400, "Bad Request", "Invalid wishlist ID format.");
+  }
   const db = createDb(c.env.DB);
-  const wishlist = await db
-    .select()
-    .from(wishlists)
-    .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
-    .get();
+  const wishlist = await db.select().from(wishlists).where(eq(wishlists.id, wishlistId)).get();
   if (!wishlist) return problem(c, 404, "Not Found", "Wishlist not found.");
 
   const jobId = crypto.randomUUID();
