@@ -22,11 +22,55 @@ function itemHtml(asin: string, title: string, imageUrl?: string, nameId = "001"
   </div>`;
 }
 
+// 現在の Amazon Japan が返す HTML 構造: タイトルが <a>、画像が <div> の中の <img>
+function newItemHtml(asin: string, title: string, imageUrl?: string, nameId = "001") {
+  const imgDiv = imageUrl ? `<div id="itemImage_${nameId}"><img data-src="${imageUrl}"></div>` : "";
+  return `<div data-reposition-action-params='{"itemExternalId":"ASIN:${asin}"}'>
+    <a id="itemName_${nameId}">${title}</a>${imgDiv}
+  </div>`;
+}
+
 function nextPageLink(page: number) {
   return `<a href="/wishlist/ls/TESTLISTID?_page=${page}">次へ</a>`;
 }
 
-// ─── scrapeWishlist ───────────────────────────────────────────────────────────
+// ─── scrapeWishlist (新 HTML 構造: <a id="itemName_"> / <div id="itemImage_"><img>) ───
+
+describe("scrapeWishlist with new Amazon HTML structure", () => {
+  it("extracts items when title is in <a> and image is in <div><img data-src>", async () => {
+    const html = `<html><body>
+      ${newItemHtml("B0ITEM1001", "テスト商品1", "https://img.example.com/1.jpg", "001")}
+      ${newItemHtml("B0ITEM2001", "テスト商品2", undefined, "002")}
+    </body></html>`;
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response(html)));
+
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
+
+    expect(items).toHaveLength(2);
+    expect(items[0].asin).toBe("B0ITEM1001");
+    expect(items[0].title).toBe("テスト商品1");
+    expect(items[0].imageUrl).toBe("https://img.example.com/1.jpg");
+    expect(items[1].asin).toBe("B0ITEM2001");
+    expect(items[1].imageUrl).toBeNull();
+  });
+
+  it("extracts image when <img> has src (not data-src) inside <div id='itemImage_'>", async () => {
+    const html = `<html><body>
+      <div data-reposition-action-params='{"itemExternalId":"ASIN:B0ITEM1001"}'>
+        <a id="itemName_001">テスト商品</a>
+        <div id="itemImage_001"><img src="https://img.example.com/direct.jpg"></div>
+      </div>
+    </body></html>`;
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response(html)));
+
+    const items = await scrapeWishlist(LIST_ID, noOpLimiter);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].imageUrl).toBe("https://img.example.com/direct.jpg");
+  });
+});
+
+// ─── scrapeWishlist (旧 HTML 構造: <span id="itemName_"> / <img id="itemImage_">) ───
 
 describe("scrapeWishlist", () => {
   it("extracts items from a single-page wishlist", async () => {
