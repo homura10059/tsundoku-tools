@@ -19,6 +19,7 @@ import {
 import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Bindings } from "../index.js";
+import { problem } from "../lib/problem.js";
 
 export const wishlistsRouter = new Hono<{ Bindings: Bindings }>();
 
@@ -35,7 +36,7 @@ wishlistsRouter.get("/:id", async (c) => {
     .from(wishlists)
     .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
     .get();
-  if (!row) return c.json({ error: "Not found" }, 404);
+  if (!row) return problem(c, 404, "Not Found", "Wishlist not found.");
   return c.json(row);
 });
 
@@ -43,7 +44,7 @@ wishlistsRouter.post("/", async (c) => {
   const body = await c.req.json<{ label: string; url: string }>();
   const amazonListId = extractWishlistId(body.url);
   if (!amazonListId) {
-    return c.json({ error: "Invalid Amazon wishlist URL" }, 400);
+    return problem(c, 400, "Bad Request", "Invalid Amazon wishlist URL.");
   }
 
   const db = createDb(c.env.DB);
@@ -69,7 +70,7 @@ wishlistsRouter.put("/:id", async (c) => {
   if (body.label !== undefined) updates.label = body.label;
   if (body.url !== undefined) {
     const amazonListId = extractWishlistId(body.url);
-    if (!amazonListId) return c.json({ error: "Invalid Amazon wishlist URL" }, 400);
+    if (!amazonListId) return problem(c, 400, "Bad Request", "Invalid Amazon wishlist URL.");
     updates.url = body.url;
     updates.amazonListId = amazonListId;
   }
@@ -83,7 +84,7 @@ wishlistsRouter.put("/:id", async (c) => {
     .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
     .returning();
 
-  if (!row) return c.json({ error: "Not found" }, 404);
+  if (!row) return problem(c, 404, "Not Found", "Wishlist not found.");
   return c.json(row);
 });
 
@@ -116,9 +117,17 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
     .from(wishlists)
     .where(eq(wishlists.id, toWishlistId(c.req.param("id"))))
     .get();
-  if (!wishlist) return c.json({ error: "Not found" }, 404);
+  if (!wishlist) return problem(c, 404, "Not Found", "Wishlist not found.");
 
   const jobId = crypto.randomUUID();
+  const startedAt = nowIso();
+  await db.insert(scrapeJobs).values({
+    id: jobId,
+    wishlistId: wishlist.id,
+    startedAt,
+    status: "running",
+  });
+
   const env = c.env;
 
   c.executionCtx.waitUntil(
@@ -129,14 +138,6 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
         minPointChange: Number(env.NOTIFY_MIN_POINT_CHANGE ?? 50),
         cooldownHours: Number(env.NOTIFY_COOLDOWN_HOURS ?? 6),
       };
-
-      const startedAt = nowIso();
-      await db.insert(scrapeJobs).values({
-        id: jobId,
-        wishlistId: wishlist.id,
-        startedAt,
-        status: "running",
-      });
 
       const errors: string[] = [];
       let scraped = 0;

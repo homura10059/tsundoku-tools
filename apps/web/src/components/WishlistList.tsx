@@ -1,7 +1,9 @@
 import type { Wishlist } from "@tsundoku-tools/shared";
 import { useCallback, useEffect, useState } from "react";
+import { ApiProblemError } from "../lib/api-error.js";
 import { api } from "../lib/api.js";
 import { getToken } from "../lib/auth.js";
+import { Toast } from "./Toast.js";
 import { WishlistForm } from "./WishlistForm.js";
 
 export default function WishlistList() {
@@ -23,10 +25,10 @@ export default function WishlistList() {
       setLoading(true);
       setWishlists(await api.wishlists.list());
     } catch (e) {
-      if (String(e).includes("401")) {
+      if (e instanceof ApiProblemError && e.problem.status === 401) {
         setUnauthenticated(true);
       } else {
-        setError(String(e));
+        setError(e instanceof ApiProblemError ? (e.problem.detail ?? e.problem.title) : String(e));
       }
     } finally {
       setLoading(false);
@@ -54,7 +56,9 @@ export default function WishlistList() {
     try {
       await api.wishlists.scrape(id);
     } catch (e) {
-      setScrapeError(`スクレイプに失敗しました: ${String(e)}`);
+      const detail =
+        e instanceof ApiProblemError ? (e.problem.detail ?? e.problem.title) : String(e);
+      setScrapeError(`スクレイプに失敗しました: ${detail}`);
     } finally {
       setScrapingIds((prev) => {
         const next = new Set(prev);
@@ -91,11 +95,7 @@ export default function WishlistList() {
         />
       )}
 
-      {scrapeError && (
-        <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
-          {scrapeError}
-        </div>
-      )}
+      {scrapeError && <Toast message={scrapeError} onDismiss={() => setScrapeError(null)} />}
 
       {wishlists.length === 0 ? (
         <p className="text-gray-500">ウィッシュリストがまだありません。</p>

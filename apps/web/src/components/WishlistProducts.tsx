@@ -1,5 +1,6 @@
 import type { Product } from "@tsundoku-tools/shared";
 import { useEffect, useState } from "react";
+import { ApiProblemError } from "../lib/api-error.js";
 import { api } from "../lib/api.js";
 import { getToken } from "../lib/auth.js";
 
@@ -28,10 +29,12 @@ export default function WishlistProducts() {
       .products(wishlistId)
       .then(setProducts)
       .catch((e) => {
-        if (String(e).includes("401")) {
+        if (e instanceof ApiProblemError && e.problem.status === 401) {
           setUnauthenticated(true);
         } else {
-          setError(String(e));
+          setError(
+            e instanceof ApiProblemError ? (e.problem.detail ?? e.problem.title) : String(e),
+          );
         }
       })
       .finally(() => setLoading(false));

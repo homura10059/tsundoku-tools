@@ -3,6 +3,7 @@ import { toAsin } from "@tsundoku-tools/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Bindings } from "../index.js";
+import { problem } from "../lib/problem.js";
 
 export const productsRouter = new Hono<{ Bindings: Bindings }>();
 
@@ -19,7 +20,7 @@ productsRouter.get("/:asin", async (c) => {
     .from(products)
     .where(eq(products.asin, toAsin(c.req.param("asin"))))
     .get();
-  if (!row) return c.json({ error: "Not found" }, 404);
+  if (!row) return problem(c, 404, "Not Found", "Product not found.");
   return c.json(row);
 });
 
