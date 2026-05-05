@@ -70,11 +70,28 @@ erDiagram
         text errors
     }
 
+    users {
+        text id PK
+        text discord_id UK
+        text username
+        text avatar
+        text created_at
+        text updated_at
+    }
+
+    sessions {
+        text id PK
+        text user_id FK
+        text expires_at
+        text created_at
+    }
+
     wishlists ||--o{ wishlist_products : "has"
     wishlists ||--o{ scrape_jobs : "has"
     products ||--o{ wishlist_products : "in"
     products ||--o{ price_snapshots : "has"
     products ||--o{ notifications : "has"
+    users ||--o{ sessions : "has"
 ```
 
 ---
@@ -144,8 +161,6 @@ Amazon.co.jp の商品マスタ。スクレイプ時に UPSERT される。
 | `coupon_pct` | REAL | | クリップクーポン割引率 (%) |
 | `coupon_jpy` | INTEGER | | クリップクーポン固定値引き額 (円) |
 
-**インデックス**: `(asin, scraped_at DESC)` — 最新スナップショット取得の高速化
-
 ### `notifications`
 
 Discord に送信した通知の監査ログ。クールダウン判定にも使用。
@@ -154,20 +169,12 @@ Discord に送信した通知の監査ログ。クールダウン判定にも使
 |---|---|---|---|
 | `id` | TEXT | PK | UUID v4 |
 | `asin` | TEXT | FK NOT NULL | |
-| `notification_type` | TEXT | NOT NULL | 通知種別 (下記参照) |
+| `notification_type` | TEXT | NOT NULL | `price_drop` / `price_rise` / `new_discount` / `point_change` / `back_in_stock` / `out_of_stock` |
 | `old_value` | REAL | | 変化前の値 |
 | `new_value` | REAL | | 変化後の値 |
 | `change_pct` | REAL | | 変化率 (%) |
 | `sent_at` | TEXT | NOT NULL | 通知送信日時 |
 | `discord_message_id` | TEXT | | Discord メッセージ ID (将来の編集用) |
-
-**notification_type の値**:
-- `price_drop` — 価格下落
-- `price_rise` — 価格上昇
-- `new_discount` — 新たに値引き開始
-- `point_change` — ポイント変動
-- `back_in_stock` — 在庫復活
-- `out_of_stock` — 在庫切れ
 
 ### `scrape_jobs`
 
@@ -183,6 +190,30 @@ Discord に送信した通知の監査ログ。クールダウン判定にも使
 | `products_scraped` | INTEGER | NOT NULL DEFAULT 0 | 成功したスクレイプ数 |
 | `errors` | TEXT | | エラーメッセージの JSON 配列 |
 
+### `users`
+
+Discord OAuth で認証されたユーザー。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `id` | TEXT | PK | UUID v4 |
+| `discord_id` | TEXT | UNIQUE NOT NULL | Discord ユーザー ID |
+| `username` | TEXT | NOT NULL | Discord ユーザー名 |
+| `avatar` | TEXT | | Discord アバター hash |
+| `created_at` | TEXT | NOT NULL | |
+| `updated_at` | TEXT | NOT NULL | |
+
+### `sessions`
+
+ログイン済みセッション。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `id` | TEXT | PK | セッショントークン (UUID v4) |
+| `user_id` | TEXT | FK → users.id | |
+| `expires_at` | TEXT | NOT NULL | セッション有効期限 (ISO-8601) |
+| `created_at` | TEXT | NOT NULL | |
+
 ---
 
 ## データ保持ポリシー (推奨)
@@ -190,8 +221,7 @@ Discord に送信した通知の監査ログ。クールダウン判定にも使
 - `price_snapshots`: 直近 90 日分を保持、それ以前は月次集計に圧縮
 - `scrape_jobs`: 30 日分を保持
 - `notifications`: 無期限 (監査ログとして)
-
-D1 のストレージ制限に応じて、Worker で定期的なクリーンアップジョブを実装することを推奨します。
+- `sessions`: `expires_at` 以降は不要
 
 ---
 
@@ -208,4 +238,4 @@ pnpm --filter @tsundoku-tools/db run db:migrate:remote
 pnpm --filter @tsundoku-tools/db run db:generate
 ```
 
-マイグレーションファイルは `packages/db/src/migrations/` に格納され、`apps/api/wrangler.toml` と `apps/scraper-worker/wrangler.toml` で `migrations_dir` として参照されます。
+マイグレーションファイルは `packages/db/src/migrations/` に格納されます。

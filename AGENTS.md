@@ -55,13 +55,13 @@ pnpm --filter @tsundoku-tools/db run db:generate
 
 ## Architecture
 
-Full-TypeScript monorepo. All compute runs on **Cloudflare exclusively** (Workers, D1, Pages). No Node.js server; no Docker.
+Full-TypeScript monorepo. All compute runs on **Cloudflare exclusively** (Workers, D1, Pages, Browser Rendering). No Node.js server; no Docker. See [docs/architecture.md](docs/architecture.md) for diagrams and rationale.
 
 ### Package dependency graph
 
 ```
 apps/web             → @tsundoku-tools/shared
-apps/api             → @tsundoku-tools/db, shared
+apps/api             → @tsundoku-tools/db, scraper, notifier, shared
 apps/scraper-worker  → @tsundoku-tools/db, scraper, notifier, shared
 packages/notifier    → @tsundoku-tools/db, shared
 packages/scraper     → @tsundoku-tools/shared
@@ -74,27 +74,32 @@ packages/shared      → (none)
 `scraper-worker`'s `scheduled()` handler runs every 4 hours:
 
 1. Fetch active wishlists from D1
-2. `scrapeWishlist()` → extract ASINs from wishlist HTML
-3. `scrapeProduct()` per ASIN at **1 RPS** (token bucket in `rate-limiter.ts`)
-4. Upsert `products` + insert `price_snapshots` into D1
-5. `analyzeProduct()` compares latest 2 snapshots
-6. Send Discord Webhook embed if thresholds crossed and cooldown elapsed
-7. Record notification in `notifications` table (used for cooldown checks)
+2. `BrowserSessionManager.acquire()` → reuse or launch Cloudflare Browser Rendering session
+3. `scrapeWishlist()` → extract ASINs from wishlist page via Puppeteer (mobile UA)
+4. `scrapeProduct()` per ASIN at **1 RPS** (token bucket in `rate-limiter.ts`, desktop UA)
+5. Upsert `products` + insert `price_snapshots` + upsert `wishlist_products` into D1
+6. Record job progress in `scrape_jobs`
+7. `analyzeProduct()` compares latest 2 snapshots
+8. Send Discord Webhook embed if thresholds crossed and cooldown elapsed
+9. On partial/full failure, send error alert to `DISCORD_ERROR_WEBHOOK_URL`
 
-`apps/api` is a separate Hono app serving REST endpoints for the web UI. Shares the same D1 binding.
+`apps/api` is a separate Hono app serving REST endpoints + Discord OAuth for the web UI. Shares the same D1 binding.
 
 ## Key Constraints
 
 Non-obvious decisions that affect how you write code here:
 
-- **Scraper runtime**: uses `fetch` + `HTMLRewriter` (Cloudflare built-ins), NOT Playwright. DOM selectors live in `packages/scraper/src/product.ts` and `packages/scraper/src/wishlist.ts`.
+- **Scraper runtime**: uses **Cloudflare Browser Rendering (`@cloudflare/puppeteer`)**, NOT fetch + HTMLRewriter. `BrowserSessionManager` in `packages/scraper/src/session-manager.ts` reuses existing sessions to avoid the launch cost. DOM selectors live in `packages/scraper/src/product.ts` and `wishlist.ts`.
 - **No compiled dist/**: workspace packages export TypeScript source directly (`"exports": { ".": "./src/index.ts" }`). Wrangler (esbuild) and Vite resolve TS at bundle time — never add a build step to packages.
 - **D1 schema**: single source of truth is `packages/db/src/schema.ts`. Migration SQL in `packages/db/src/migrations/` must be kept in sync — run `db:generate` after schema changes.
 - **Timestamps**: stored as ISO-8601 text strings. D1/SQLite has no native datetime type.
 - **ID generation**: use `crypto.randomUUID()` (Workers global), NOT `node:crypto`.
-- **Notification thresholds**: env vars on scraper-worker — `NOTIFY_MIN_PRICE_DROP_PCT` (default 5), `NOTIFY_MIN_POINT_CHANGE` (default 50), `NOTIFY_COOLDOWN_HOURS` (default 6). `DISCORD_WEBHOOK_URL` is a Wrangler secret.
+- **Notification thresholds**: env vars on scraper-worker — `NOTIFY_MIN_PRICE_DROP_PCT` (default 5), `NOTIFY_MIN_POINT_CHANGE` (default 50), `NOTIFY_COOLDOWN_HOURS` (default 6).
 - **Notification logic**: `packages/notifier/src/analyzer.ts` compares `snapshots[0]` (current) vs `snapshots[1]` (previous).
+- **Auth**: Discord OAuth. `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `API_URL`, `WEB_URL` are required bindings/secrets on `apps/api`.
 - **Web UI**: Astro `output: "static"`. React islands use `client:only="react"`. API URL via `PUBLIC_API_URL` env var. SPA routing via `public/_redirects`.
+
+See [docs/data-model.md](docs/data-model.md) for the full schema.
 
 ## Code Style
 
