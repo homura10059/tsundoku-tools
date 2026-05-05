@@ -9,3 +9,5 @@
 1. **Red**: Write a failing test that describes the desired behavior
 2. **Green**: Write the minimum code to make the test pass
 3. **Refactor**: Clean up while keeping all tests green
+
+**IMPORTANT — Doc sync**: When making design-level changes (schema, architecture, data flow, auth, env vars, package deps, scraper method), ALWAYS update the relevant `docs/` files in the same commit. Changes that affect `AGENTS.md`'s Key Constraints or Architecture sections must update `AGENTS.md` too.
