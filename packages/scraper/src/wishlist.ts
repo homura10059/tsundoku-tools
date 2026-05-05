@@ -30,7 +30,9 @@ export async function scrapeWishlist(
 
     const pageTitle = await page.title();
     const pageUrl = page.url();
-    console.log(`[scrapeWishlist] page ${currentPage}: loaded title="${pageTitle}" finalUrl=${pageUrl}`);
+    console.log(
+      `[scrapeWishlist] page ${currentPage}: loaded title="${pageTitle}" finalUrl=${pageUrl}`,
+    );
 
     const rawItems = (await page.$$eval("[data-reposition-action-params]", (els) =>
       els.map((el) => {
@@ -54,14 +56,18 @@ export async function scrapeWishlist(
       }),
     )) as RawItem[];
 
-    console.log(`[scrapeWishlist] page ${currentPage}: found ${rawItems.length} raw elements with [data-reposition-action-params]`);
+    console.log(
+      `[scrapeWishlist] page ${currentPage}: found ${rawItems.length} raw elements with [data-reposition-action-params]`,
+    );
 
     const items = rawItems.flatMap(({ params, title, imageSrc }) => {
       try {
         const parsed = JSON.parse(params) as { itemExternalId?: string };
         const raw = parsed.itemExternalId?.replace("ASIN:", "") ?? null;
         if (!raw) {
-          console.log(`[scrapeWishlist] skipped: no itemExternalId in params=${params.slice(0, 100)}`);
+          console.log(
+            `[scrapeWishlist] skipped: no itemExternalId in params=${params.slice(0, 100)}`,
+          );
           return [];
         }
         if (!/^[A-Z0-9]{10}$/.test(raw)) {
@@ -75,7 +81,9 @@ export async function scrapeWishlist(
         const asin = toAsin(raw);
         return [{ asin, title, url: buildAmazonProductUrl(asin), imageUrl: imageSrc }];
       } catch (e) {
-        console.log(`[scrapeWishlist] skipped: JSON parse error params=${params.slice(0, 100)} err=${String(e)}`);
+        console.log(
+          `[scrapeWishlist] skipped: JSON parse error params=${params.slice(0, 100)} err=${String(e)}`,
+        );
         return [];
       }
     });
@@ -102,6 +110,8 @@ export async function scrapeWishlist(
     currentPage++;
   }
 
-  console.log(`[scrapeWishlist] done: total ${allItems.length} items for amazonListId=${amazonListId}`);
+  console.log(
+    `[scrapeWishlist] done: total ${allItems.length} items for amazonListId=${amazonListId}`,
+  );
   return allItems;
 }

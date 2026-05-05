@@ -54,7 +54,9 @@ export default {
 
     console.log(`[scheduled] active wishlists: ${activeWishlists.length}`);
     for (const wl of activeWishlists) {
-      console.log(`[scheduled]   wishlist id=${wl.id} amazonListId=${wl.amazonListId} url=${wl.url}`);
+      console.log(
+        `[scheduled]   wishlist id=${wl.id} amazonListId=${wl.amazonListId} url=${wl.url}`,
+      );
     }
 
     const browser = await sessionManager.acquire(env.MYBROWSER);
@@ -90,14 +92,18 @@ export default {
               console.log(`[scheduled] onEmptyPage: html preview=\n${html}`);
             },
           );
-          console.log(`[scheduled] scrapeWishlist returned ${items.length} items for ${wishlist.amazonListId}`);
+          console.log(
+            `[scheduled] scrapeWishlist returned ${items.length} items for ${wishlist.amazonListId}`,
+          );
 
           for (const item of items) {
             try {
               const url = buildAmazonProductUrl(item.asin);
               console.log(`[scheduled] scraping product asin=${item.asin} title="${item.title}"`);
               const result = await scrapeProduct(item.asin, url, productPage, rateLimiter);
-              console.log(`[scheduled] product result: asin=${item.asin} price=${result.priceJpy} inStock=${result.inStock}`);
+              console.log(
+                `[scheduled] product result: asin=${item.asin} price=${result.priceJpy} inStock=${result.inStock}`,
+              );
               const now = nowIso();
 
               // Upsert product
