@@ -2,7 +2,7 @@
 
 ## 概要
 
-`packages/scraper` は Amazon.co.jp のウィッシュリストページと商品ページを fetch + HTMLRewriter でスクレイピングします。Cloudflare Workers の V8 ランタイム上で動作するため、Node.js 専用 API (Playwright, Puppeteer, cheerio 等) は使用しません。
+`packages/scraper` は Amazon.co.jp のウィッシュリストページと商品ページを **Cloudflare Browser Rendering (`@cloudflare/puppeteer`)** でスクレイピングします。`BrowserSessionManager` が既存のブラウザセッションを再利用し、起動コストを抑えます。
 
 ---
 
@@ -10,11 +10,27 @@
 
 ```
 packages/scraper/src/
-├── rate-limiter.ts   # トークンバケット実装
-├── wishlist.ts       # ウィッシュリストページ → ASIN[] の抽出
-├── product.ts        # 商品ページ → ScrapeResult の抽出
-└── index.ts          # パブリック API の re-export
+├── session-manager.ts  # Cloudflare Browser Rendering セッション管理
+├── rate-limiter.ts     # トークンバケット実装 (1 RPS)
+├── wishlist.ts         # ウィッシュリストページ → ASIN[] の抽出
+├── product.ts          # 商品ページ → ScrapeResult の抽出
+└── index.ts            # パブリック API の re-export
 ```
+
+---
+
+## ブラウザセッション管理 (`session-manager.ts`)
+
+`BrowserSessionManager` は Cloudflare Browser Rendering の既存セッションを優先して接続し、空きがなければ新規起動します。
+
+```
+acquire(binding):
+  1. puppeteer.sessions() で未接続セッションを検索
+  2. 見つかれば puppeteer.connect() で再利用
+  3. なければ puppeteer.launch({ keep_alive: 600_000 }) で新規起動
+```
+
+`terminate()` でブラウザを閉じ、エラー時は `disconnect()` で安全に切断します。
 
 ---
 
@@ -23,27 +39,19 @@ packages/scraper/src/
 1 RPS (request per second) を保証するトークンバケット実装。
 
 ```
-容量: 1 トークン
-補充レート: 1 トークン / 秒
-
 acquire():
   1. 前回リクエストからの経過時間を計算
   2. minIntervalMs (= 1000ms) 未満なら差分だけ待機
   3. lastRequestAt を更新して処理続行
 ```
 
-Worker はリクエストごとにステートレスなため、レートリミッターのステートは **1 回の scheduled() 実行内でのみ有効**です。複数 Worker インスタンスが同時に起動した場合は合計 RPS が増える可能性がありますが、Cron Trigger は同時実行が 1 インスタンスに制限されるため問題ありません。
+Worker はリクエストごとにステートレスなため、レートリミッターのステートは **1 回の scheduled() 実行内でのみ有効**です。
 
 ---
 
 ## ウィッシュリストスクレイパー (`wishlist.ts`)
 
-### Amazon ウィッシュリスト URL パターン
-
-```
-https://www.amazon.co.jp/wishlist/ls/{LIST_ID}
-https://www.amazon.co.jp/hz/wishlist/ls/{LIST_ID}
-```
+モバイル User-Agent で取得し、モバイル版レイアウトから ASIN を抽出します。
 
 ### 抽出対象 DOM 要素
 
@@ -56,15 +64,15 @@ https://www.amazon.co.jp/hz/wishlist/ls/{LIST_ID}
 
 ### ページネーション
 
-ウィッシュリストは 1 ページ最大 ~50 件。`_page=2`, `_page=3` ... と続くページを再帰的に取得します。各ページ取得にもレートリミッターを適用します。
+1 ページ最大 ~50 件。`_page=2`, `_page=3` ... と続くページを再帰的に取得します。
 
 ---
 
 ## 商品スクレイパー (`product.ts`)
 
-### 抽出対象 DOM 要素
+デスクトップ User-Agent で取得します。Amazon.co.jp の商品ページは頻繁に DOM 構造が変わるため、セレクタのメンテナンスが必要です。
 
-Amazon.co.jp の商品ページは頻繁に DOM 構造が変わります。以下は 2024 年時点の主要セレクタです。
+### 抽出対象 DOM 要素
 
 | 情報 | セレクタ | 備考 |
 |---|---|---|
@@ -75,40 +83,29 @@ Amazon.co.jp の商品ページは頻繁に DOM 構造が変わります。以�
 | 在庫切れ | `#outOfStock` | 要素存在で判定 |
 | Prime | `#priceBadging_feature_div .a-badge-text` | "プライム" テキスト |
 
-### 値引率・ポイント還元率の計算
-
-```typescript
-discountRatePct = Math.round((listPrice - price) / listPrice * 100)
-pointRatePct    = Math.round(points / price * 100 * 10) / 10  // 小数第1位まで
-```
+セレクタは `packages/scraper/src/product.ts` と `packages/scraper/src/wishlist.ts` に集約されています。DOM 変更時はここを更新してください。
 
 ---
 
 ## エラーハンドリング
 
-- HTTP 4xx/5xx: `throw new Error(...)` → `scrape_jobs.errors` に記録
-- HTMLRewriter が要素を見つけられない: `null` を返す (フィールドは nullable)
+- ページ取得失敗: `throw new Error(...)` → `scrape_jobs.errors` に記録
+- セレクタが見つからない: `null` を返す (フィールドは nullable)
 - 1 商品のエラーは他の商品の処理を妨げない (try/catch per ASIN)
+- ジョブ全体の失敗: `DISCORD_ERROR_WEBHOOK_URL` にエラー通知を送信
 
-`scrape_jobs.status` が `partial` の場合、一部商品のスクレイプが失敗しています。`errors` カラムに JSON 配列で詳細が記録されます。
-
----
-
-## DOM セレクタのメンテナンス
-
-Amazon は定期的に DOM 構造を変更します。スクレイプ結果が null ばかりになった場合は、実際のページソースと比較してセレクタを更新してください。
-
-セレクタは `packages/scraper/src/product.ts` と `packages/scraper/src/wishlist.ts` に集約されています。
+`scrape_jobs.status` の値: `running` / `success` / `partial` / `failed`
 
 ---
 
 ## 開発時のテスト
 
 ```bash
-# Cron Worker をローカルで起動 (手動トリガー可能)
 cd apps/scraper-worker
 pnpm dev
 
 # ブラウザまたは curl でトリガー
 curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*"
 ```
+
+ローカルでの Puppeteer 実行には `MYBROWSER` ブラウザバインディングが必要です。`wrangler.toml` の設定を確認してください。
