@@ -9,7 +9,12 @@ import {
 } from "@tsundoku-tools/db";
 import { analyzeProduct, sendDiscordAlert, sendDiscordException } from "@tsundoku-tools/notifier";
 import type { AlertThresholds } from "@tsundoku-tools/notifier";
-import { RateLimiter, scrapeProduct, scrapeWishlist } from "@tsundoku-tools/scraper";
+import {
+  BrowserSessionManager,
+  RateLimiter,
+  scrapeProduct,
+  scrapeWishlist,
+} from "@tsundoku-tools/scraper";
 import {
   type WishlistId,
   buildAmazonProductUrl,
@@ -156,6 +161,7 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
   c.executionCtx.waitUntil(
     (async () => {
       const rateLimiter = new RateLimiter(1);
+      const sessionManager = new BrowserSessionManager();
       const thresholds: AlertThresholds = {
         minPriceDropPct: Number(env.NOTIFY_MIN_PRICE_DROP_PCT ?? 5),
         minPointChange: Number(env.NOTIFY_MIN_POINT_CHANGE ?? 50),
@@ -165,11 +171,22 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
       const errors: string[] = [];
       let scraped = 0;
 
+      const browser = await sessionManager.acquire(env.MYBROWSER);
+      const wishlistPage = await browser.newPage();
+      const productPage = await browser.newPage();
+      await wishlistPage.setUserAgent(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      );
+      await productPage.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      );
+
       let emptyPageDebugHtml: string | null = null;
 
       try {
         const items = await scrapeWishlist(
           wishlist.amazonListId,
+          wishlistPage,
           rateLimiter,
           (_url, debugHtml) => {
             emptyPageDebugHtml = debugHtml;
@@ -200,13 +217,14 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
               errors: errorMessages,
             });
           }
+          await sessionManager.terminate();
           return;
         }
 
         for (const item of items) {
           try {
             const url = buildAmazonProductUrl(item.asin);
-            const result = await scrapeProduct(item.asin, url, rateLimiter);
+            const result = await scrapeProduct(item.asin, url, productPage, rateLimiter);
             const now = nowIso();
 
             await db
@@ -303,7 +321,11 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
             errors,
           });
         }
+
+        await sessionManager.terminate();
       } catch (err) {
+        await sessionManager.disconnect();
+
         await db
           .update(scrapeJobs)
           .set({
