@@ -52,6 +52,11 @@ export default {
 
     const activeWishlists = await db.select().from(wishlists).where(eq(wishlists.isActive, true));
 
+    console.log(`[scheduled] active wishlists: ${activeWishlists.length}`);
+    for (const wl of activeWishlists) {
+      console.log(`[scheduled]   wishlist id=${wl.id} amazonListId=${wl.amazonListId} url=${wl.url}`);
+    }
+
     const browser = await sessionManager.acquire(env.MYBROWSER);
     const wishlistPage = await browser.newPage();
     const productPage = await browser.newPage();
@@ -62,6 +67,8 @@ export default {
       for (const wishlist of activeWishlists) {
         const jobId = crypto.randomUUID();
         const startedAt = nowIso();
+
+        console.log(`[scheduled] starting job ${jobId} for wishlist ${wishlist.amazonListId}`);
 
         await db.insert(scrapeJobs).values({
           id: jobId,
@@ -74,12 +81,23 @@ export default {
         let scraped = 0;
 
         try {
-          const items = await scrapeWishlist(wishlist.amazonListId, wishlistPage, rateLimiter);
+          const items = await scrapeWishlist(
+            wishlist.amazonListId,
+            wishlistPage,
+            rateLimiter,
+            (url, html) => {
+              console.log(`[scheduled] onEmptyPage: url=${url}`);
+              console.log(`[scheduled] onEmptyPage: html preview=\n${html}`);
+            },
+          );
+          console.log(`[scheduled] scrapeWishlist returned ${items.length} items for ${wishlist.amazonListId}`);
 
           for (const item of items) {
             try {
               const url = buildAmazonProductUrl(item.asin);
+              console.log(`[scheduled] scraping product asin=${item.asin} title="${item.title}"`);
               const result = await scrapeProduct(item.asin, url, productPage, rateLimiter);
+              console.log(`[scheduled] product result: asin=${item.asin} price=${result.priceJpy} inStock=${result.inStock}`);
               const now = nowIso();
 
               // Upsert product

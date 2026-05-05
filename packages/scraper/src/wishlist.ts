@@ -19,11 +19,18 @@ export async function scrapeWishlist(
   let nextUrl: string | null = buildAmazonWishlistUrl(amazonListId);
   let currentPage = 1;
 
+  console.log(`[scrapeWishlist] start: amazonListId=${amazonListId} firstUrl=${nextUrl}`);
+
   while (nextUrl) {
     await rateLimiter.acquire();
     const currentUrl = nextUrl;
 
+    console.log(`[scrapeWishlist] page ${currentPage}: navigating to ${currentUrl}`);
     await page.goto(currentUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+
+    const pageTitle = await page.title();
+    const pageUrl = page.url();
+    console.log(`[scrapeWishlist] page ${currentPage}: loaded title="${pageTitle}" finalUrl=${pageUrl}`);
 
     const rawItems = (await page.$$eval("[data-reposition-action-params]", (els) =>
       els.map((el) => {
@@ -47,19 +54,33 @@ export async function scrapeWishlist(
       }),
     )) as RawItem[];
 
+    console.log(`[scrapeWishlist] page ${currentPage}: found ${rawItems.length} raw elements with [data-reposition-action-params]`);
+
     const items = rawItems.flatMap(({ params, title, imageSrc }) => {
       try {
         const parsed = JSON.parse(params) as { itemExternalId?: string };
         const raw = parsed.itemExternalId?.replace("ASIN:", "") ?? null;
-        if (raw && /^[A-Z0-9]{10}$/.test(raw) && title) {
-          const asin = toAsin(raw);
-          return [{ asin, title, url: buildAmazonProductUrl(asin), imageUrl: imageSrc }];
+        if (!raw) {
+          console.log(`[scrapeWishlist] skipped: no itemExternalId in params=${params.slice(0, 100)}`);
+          return [];
         }
-      } catch {
-        // ignore malformed JSON
+        if (!/^[A-Z0-9]{10}$/.test(raw)) {
+          console.log(`[scrapeWishlist] skipped: ASIN format invalid raw="${raw}"`);
+          return [];
+        }
+        if (!title) {
+          console.log(`[scrapeWishlist] skipped: empty title for ASIN=${raw}`);
+          return [];
+        }
+        const asin = toAsin(raw);
+        return [{ asin, title, url: buildAmazonProductUrl(asin), imageUrl: imageSrc }];
+      } catch (e) {
+        console.log(`[scrapeWishlist] skipped: JSON parse error params=${params.slice(0, 100)} err=${String(e)}`);
+        return [];
       }
-      return [];
     });
+
+    console.log(`[scrapeWishlist] page ${currentPage}: ${items.length} valid items parsed`);
 
     allItems.push(...items);
 
@@ -68,15 +89,19 @@ export async function scrapeWishlist(
       onEmptyPage(currentUrl, html.slice(0, 1500));
     }
 
+    const nextPageSelector = `a[href*="_page=${currentPage + 1}"]`;
     nextUrl = await page
-      .$eval(`a[href*="_page=${currentPage + 1}"]`, (el) => {
+      .$eval(nextPageSelector, (el) => {
         const href = el.getAttribute("href") ?? "";
         return href.startsWith("http") ? href : `https://www.amazon.co.jp${href}`;
       })
       .catch(() => null);
 
+    console.log(`[scrapeWishlist] page ${currentPage}: next page url=${nextUrl ?? "(none)"}`);
+
     currentPage++;
   }
 
+  console.log(`[scrapeWishlist] done: total ${allItems.length} items for amazonListId=${amazonListId}`);
   return allItems;
 }
