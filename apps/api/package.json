@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "*",
     "@tsundoku-tools/db": "workspace:*",
     "@tsundoku-tools/notifier": "workspace:*",
     "@tsundoku-tools/scraper": "workspace:*",
