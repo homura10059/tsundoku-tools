@@ -9,6 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "*",
     "@tsundoku-tools/db": "workspace:*",
     "@tsundoku-tools/notifier": "workspace:*",
     "@tsundoku-tools/scraper": "workspace:*",

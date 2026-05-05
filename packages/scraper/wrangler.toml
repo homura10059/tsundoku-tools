@@ -1,3 +1,6 @@
 name = "scraper-test"
 main = "src/index.ts"
-compatibility_date = "2024-12-18"
+compatibility_date = "2025-09-15"
+
+[browser]
+binding = "MYBROWSER"

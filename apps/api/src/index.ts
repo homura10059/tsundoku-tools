@@ -1,3 +1,4 @@
+import type { BrowserWorker } from "@cloudflare/puppeteer";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { requireAuth } from "./middleware/auth.js";
@@ -7,6 +8,7 @@ import { wishlistsRouter } from "./routes/wishlists.js";
 
 export type Bindings = {
   DB: D1Database;
+  MYBROWSER: BrowserWorker;
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
   SESSION_SECRET: string;
