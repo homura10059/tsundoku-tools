@@ -19,7 +19,7 @@ migrations_dir = "../../packages/db/src/migrations"
 NOTIFY_MIN_PRICE_DROP_PCT = "5"
 NOTIFY_MIN_POINT_CHANGE = "50"
 NOTIFY_COOLDOWN_HOURS = "6"
-LOG_LEVEL = ""  # "debug" にするとデバッグログを出力
+LOG_LEVEL = "debug"  # "debug" にするとデバッグログを出力
 
 # Secrets (set via: wrangler secret put DISCORD_WEBHOOK_URL / DISCORD_ERROR_WEBHOOK_URL)
 # DISCORD_WEBHOOK_URL        — 価格アラート通知先 Discord Webhook URL
