@@ -188,8 +188,10 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
           wishlist.amazonListId,
           wishlistPage,
           rateLimiter,
-          (_url, debugHtml) => {
-            emptyPageDebugHtml = debugHtml;
+          {
+            onEmptyPage: (_url, debugHtml) => {
+              emptyPageDebugHtml = debugHtml;
+            },
           },
         );
 

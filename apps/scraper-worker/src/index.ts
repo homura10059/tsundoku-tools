@@ -13,6 +13,7 @@ import type { AlertThresholds } from "@tsundoku-tools/notifier";
 import {
   BrowserSessionManager,
   RateLimiter,
+  createLogger,
   scrapeProduct,
   scrapeWishlist,
 } from "@tsundoku-tools/scraper";
@@ -27,6 +28,7 @@ export type Env = {
   NOTIFY_MIN_PRICE_DROP_PCT: string;
   NOTIFY_MIN_POINT_CHANGE: string;
   NOTIFY_COOLDOWN_HOURS: string;
+  LOG_LEVEL?: string;
 };
 
 const DESKTOP_UA =
@@ -40,9 +42,10 @@ export default {
   },
 
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+    const log = createLogger(env.LOG_LEVEL === "debug");
     const db = createDb(env.DB);
     const rateLimiter = new RateLimiter(1);
-    const sessionManager = new BrowserSessionManager();
+    const sessionManager = new BrowserSessionManager(log);
 
     const thresholds: AlertThresholds = {
       minPriceDropPct: Number(env.NOTIFY_MIN_PRICE_DROP_PCT ?? 5),
@@ -51,6 +54,7 @@ export default {
     };
 
     const activeWishlists = await db.select().from(wishlists).where(eq(wishlists.isActive, true));
+    log.debug(`[scheduled] Found ${activeWishlists.length} active wishlist(s)`);
 
     const browser = await sessionManager.acquire(env.MYBROWSER);
     const wishlistPage = await browser.newPage();
@@ -60,6 +64,7 @@ export default {
 
     try {
       for (const wishlist of activeWishlists) {
+        log.debug(`[scheduled] Processing wishlist: ${wishlist.amazonListId} (${wishlist.url})`);
         const jobId = crypto.randomUUID();
         const startedAt = nowIso();
 
@@ -74,12 +79,19 @@ export default {
         let scraped = 0;
 
         try {
-          const items = await scrapeWishlist(wishlist.amazonListId, wishlistPage, rateLimiter);
+          const items = await scrapeWishlist(wishlist.amazonListId, wishlistPage, rateLimiter, {
+            log,
+            onEmptyPage: (emptyUrl, html) => {
+              log.warn(`[scheduled] Empty wishlist page at ${emptyUrl}:\n${html}`);
+            },
+          });
+          log.debug(`[scheduled] Wishlist ${wishlist.amazonListId}: found ${items.length} item(s)`);
 
           for (const item of items) {
+            log.debug(`[scheduled] Scraping product: ${item.asin} "${item.title}"`);
             try {
               const url = buildAmazonProductUrl(item.asin);
-              const result = await scrapeProduct(item.asin, url, productPage, rateLimiter);
+              const result = await scrapeProduct(item.asin, url, productPage, rateLimiter, log);
               const now = nowIso();
 
               // Upsert product
@@ -156,7 +168,9 @@ export default {
               }
 
               scraped++;
+              log.debug(`[scheduled] Product ${item.asin}: scraped successfully`);
             } catch (err) {
+              log.error(`[scheduled] Product ${item.asin}: error — ${String(err)}`);
               errors.push(`${item.asin}: ${String(err)}`);
             }
           }
@@ -172,6 +186,10 @@ export default {
             })
             .where(eq(scrapeJobs.id, jobId));
 
+          log.debug(
+            `[scheduled] Wishlist ${wishlist.amazonListId}: job done — status=${finalStatus}, scraped=${scraped}, errors=${errors.length}`,
+          );
+
           if (finalStatus === "partial" && env.DISCORD_ERROR_WEBHOOK_URL) {
             await sendDiscordException(env.DISCORD_ERROR_WEBHOOK_URL, {
               jobId,
@@ -181,6 +199,7 @@ export default {
             });
           }
         } catch (err) {
+          log.error(`[scheduled] Wishlist ${wishlist.amazonListId}: fatal error — ${String(err)}`);
           await db
             .update(scrapeJobs)
             .set({

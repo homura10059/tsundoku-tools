@@ -164,8 +164,10 @@ describe("scrapeWishlist: onEmptyPage callback", () => {
   it("calls onEmptyPage with URL and HTML snapshot when page yields no items", async () => {
     const page = makeWishlistPage([{ items: [] }]);
     const calls: { url: string; debugHtml: string }[] = [];
-    await scrapeWishlist(LIST_ID, page, noOpLimiter, (url, debugHtml) => {
-      calls.push({ url, debugHtml });
+    await scrapeWishlist(LIST_ID, page, noOpLimiter, {
+      onEmptyPage: (url, debugHtml) => {
+        calls.push({ url, debugHtml });
+      },
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe(WISHLIST_URL);
@@ -175,7 +177,7 @@ describe("scrapeWishlist: onEmptyPage callback", () => {
   it("does not call onEmptyPage when items are found", async () => {
     const page = makeWishlistPage([{ items: [rawItem("B0ITEM1001", "商品1")] }]);
     const onEmptyPage = vi.fn();
-    await scrapeWishlist(LIST_ID, page, noOpLimiter, onEmptyPage);
+    await scrapeWishlist(LIST_ID, page, noOpLimiter, { onEmptyPage });
     expect(onEmptyPage).not.toHaveBeenCalled();
   });
 });

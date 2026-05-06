@@ -1,6 +1,7 @@
 import type { Page } from "@cloudflare/puppeteer";
 import type { AmazonListId, WishlistItem } from "@tsundoku-tools/shared";
 import { buildAmazonProductUrl, buildAmazonWishlistUrl, toAsin } from "@tsundoku-tools/shared";
+import { type Logger, noopLogger } from "./logger.js";
 import type { RateLimiter } from "./rate-limiter.js";
 
 type RawItem = {
@@ -9,21 +10,30 @@ type RawItem = {
   imageSrc: string | null;
 };
 
+type ScrapeWishlistOptions = {
+  onEmptyPage?: (url: string, debugHtml: string) => void;
+  log?: Logger;
+};
+
 export async function scrapeWishlist(
   amazonListId: AmazonListId,
   page: Page,
   rateLimiter: RateLimiter,
-  onEmptyPage?: (url: string, debugHtml: string) => void,
+  options?: ScrapeWishlistOptions,
 ): Promise<WishlistItem[]> {
+  const { onEmptyPage, log = noopLogger } = options ?? {};
   const allItems: WishlistItem[] = [];
   let nextUrl: string | null = buildAmazonWishlistUrl(amazonListId);
   let currentPage = 1;
+
+  log.debug(`[scrapeWishlist] Starting wishlist ${amazonListId}, first URL: ${nextUrl}`);
 
   while (nextUrl) {
     await rateLimiter.acquire();
     const currentUrl = nextUrl;
 
     await page.goto(currentUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    log.debug(`[scrapeWishlist] Page ${currentPage}: navigated to ${currentUrl}`);
 
     const rawItems = (await page.$$eval("[data-reposition-action-params]", (els) =>
       els.map((el) => {
@@ -47,25 +57,52 @@ export async function scrapeWishlist(
       }),
     )) as RawItem[];
 
+    log.debug(
+      `[scrapeWishlist] Page ${currentPage}: found ${rawItems.length} [data-reposition-action-params] elements`,
+    );
+
     const items = rawItems.flatMap(({ params, title, imageSrc }) => {
+      let parsed: { itemExternalId?: string };
       try {
-        const parsed = JSON.parse(params) as { itemExternalId?: string };
-        const raw = parsed.itemExternalId?.replace("ASIN:", "") ?? null;
-        if (raw && /^[A-Z0-9]{10}$/.test(raw) && title) {
-          const asin = toAsin(raw);
-          return [{ asin, title, url: buildAmazonProductUrl(asin), imageUrl: imageSrc }];
-        }
-      } catch {
-        // ignore malformed JSON
+        parsed = JSON.parse(params) as { itemExternalId?: string };
+      } catch (err) {
+        log.debug(
+          `[scrapeWishlist] Skipping item: JSON parse error (${String(err)}), params: ${params.slice(0, 100)}`,
+        );
+        return [];
       }
-      return [];
+
+      const raw = parsed.itemExternalId?.replace("ASIN:", "") ?? null;
+      if (!raw) {
+        log.debug("[scrapeWishlist] Skipping item: no itemExternalId in params");
+        return [];
+      }
+      if (!/^[A-Z0-9]{10}$/.test(raw)) {
+        log.debug(`[scrapeWishlist] Skipping item: invalid ASIN format "${raw}"`);
+        return [];
+      }
+      if (!title) {
+        log.debug(`[scrapeWishlist] Skipping item: missing title for ASIN "${raw}"`);
+        return [];
+      }
+      const asin = toAsin(raw);
+      log.debug(`[scrapeWishlist] Valid item: ASIN ${asin} "${title}"`);
+      return [{ asin, title, url: buildAmazonProductUrl(asin), imageUrl: imageSrc }];
     });
 
+    log.debug(
+      `[scrapeWishlist] Page ${currentPage}: ${items.length}/${rawItems.length} items valid`,
+    );
     allItems.push(...items);
 
-    if (items.length === 0 && onEmptyPage) {
+    if (items.length === 0) {
       const html = await page.content();
-      onEmptyPage(currentUrl, html.slice(0, 1500));
+      log.warn(
+        `[scrapeWishlist] Empty page (0 valid items) at ${currentUrl}, HTML snippet:\n${html.slice(0, 500)}`,
+      );
+      if (onEmptyPage) {
+        onEmptyPage(currentUrl, html.slice(0, 1500));
+      }
     }
 
     nextUrl = await page
@@ -75,8 +112,15 @@ export async function scrapeWishlist(
       })
       .catch(() => null);
 
+    if (nextUrl) {
+      log.debug(`[scrapeWishlist] Page ${currentPage}: next page found → ${nextUrl}`);
+    } else {
+      log.debug(`[scrapeWishlist] Page ${currentPage}: no more pages`);
+    }
+
     currentPage++;
   }
 
+  log.debug(`[scrapeWishlist] Done: ${allItems.length} total items from wishlist ${amazonListId}`);
   return allItems;
 }
