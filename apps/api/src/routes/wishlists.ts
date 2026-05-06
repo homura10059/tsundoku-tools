@@ -184,14 +184,11 @@ wishlistsRouter.post("/:id/scrape", async (c) => {
       let emptyPageDebugHtml: string | null = null;
 
       try {
-        const items = await scrapeWishlist(
-          wishlist.amazonListId,
-          wishlistPage,
-          rateLimiter,
-          (_url, debugHtml) => {
+        const items = await scrapeWishlist(wishlist.amazonListId, wishlistPage, rateLimiter, {
+          onEmptyPage: (_url, debugHtml) => {
             emptyPageDebugHtml = debugHtml;
           },
-        );
+        });
 
         if (items.length === 0) {
           const errorMessages = ["ウィッシュリストにアイテムが見つかりませんでした"];

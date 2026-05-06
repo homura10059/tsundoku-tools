@@ -1,5 +1,6 @@
 import type { Page } from "@cloudflare/puppeteer";
 import type { Asin, ScrapeResult } from "@tsundoku-tools/shared";
+import { type Logger, noopLogger } from "./logger.js";
 import type { RateLimiter } from "./rate-limiter.js";
 
 export async function scrapeProduct(
@@ -7,12 +8,16 @@ export async function scrapeProduct(
   url: string,
   page: Page,
   rateLimiter: RateLimiter,
+  log: Logger = noopLogger,
 ): Promise<ScrapeResult> {
+  log.debug(`[scrapeProduct] Scraping ASIN ${asin} at ${url}`);
   await rateLimiter.acquire();
 
   const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  const status = response?.status() ?? "no response";
+  log.debug(`[scrapeProduct] ${asin}: HTTP ${status}`);
   if (!response?.ok()) {
-    throw new Error(`Failed to fetch product ${asin}: ${response?.status() ?? "no response"}`);
+    throw new Error(`Failed to fetch product ${asin}: ${status}`);
   }
 
   const priceText = await page
@@ -33,6 +38,10 @@ export async function scrapeProduct(
     .$eval("#priceBadging_feature_div .a-badge-text", (el) => el.textContent ?? "")
     .catch(() => "");
   const isPrime = primeBadgeText.includes("プライム");
+
+  log.debug(
+    `[scrapeProduct] ${asin}: raw extractions — price="${priceText}", listPrice="${listPriceText}", points="${pointsText}", seller="${sellerText}", prime="${primeBadgeText}", inStock=${inStock}`,
+  );
 
   const result: ScrapeResult = {
     asin,
@@ -69,6 +78,10 @@ export async function scrapeProduct(
   }
 
   if (sellerText.trim()) result.seller = sellerText.trim();
+
+  log.debug(
+    `[scrapeProduct] ${asin}: parsed — priceJpy=${result.priceJpy}, listPriceJpy=${result.listPriceJpy}, discountRatePct=${result.discountRatePct}, points=${result.points}, isPrime=${result.isPrime}, inStock=${result.inStock}, seller="${result.seller}"`,
+  );
 
   return result;
 }
