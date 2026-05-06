@@ -11,9 +11,9 @@ jobs:
     name: Lint, Type-check & Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
       - uses: actions/setup-node@v4
         with:
@@ -42,9 +42,9 @@ jobs:
     if: github.event_name == 'push'
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
       - uses: actions/setup-node@v4
         with:
@@ -67,9 +67,9 @@ jobs:
     if: github.event_name == 'push'
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
       - uses: actions/setup-node@v4
         with:
@@ -92,9 +92,9 @@ jobs:
     if: github.event_name == 'push'
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
       - uses: actions/setup-node@v4
         with:
@@ -117,9 +117,9 @@ jobs:
     if: github.event_name == 'push'
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
       - uses: actions/setup-node@v4
         with:
