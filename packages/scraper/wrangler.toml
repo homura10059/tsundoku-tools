@@ -1,6 +1,0 @@
-name = "scraper-test"
-main = "src/index.ts"
-compatibility_date = "2025-09-15"
-
-[browser]
-binding = "MYBROWSER"
