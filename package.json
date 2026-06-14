@@ -1,0 +1,22 @@
+{
+  "name": "tsundoku-tools",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "tsx": "^4.19.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.15.29",
+    "playwright": "^1.52.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.3"
+  }
+}
