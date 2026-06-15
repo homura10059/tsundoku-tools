@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git status --porcelain CLAUDE.md | grep -q . && git add CLAUDE.md && git commit -m \"docs(CLAUDE.md): セッション終了時の自動更新\" || true",
+            "statusMessage": "CLAUDE.md の変更を確認中..."
+          }
+        ]
+      }
+    ]
+  }
+}
