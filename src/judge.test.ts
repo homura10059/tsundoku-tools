@@ -17,4 +17,9 @@ describe("judge", () => {
     const item = kindleItem({ P_base: 1000, P_kindle: 700, Pt: 0 });
     expect(judge([item])).toHaveLength(1);
   });
+
+  it("ポイント還元率のみ20%以上 → ヒット", () => {
+    const item = kindleItem({ P_base: 1000, P_kindle: 1000, Pt: 200 });
+    expect(judge([item])).toHaveLength(1);
+  });
 });
