@@ -28,4 +28,14 @@ describe("judge", () => {
     const item = kindleItem({ P_base: 1000, P_kindle: 870, Pt: 100 });
     expect(judge([item])).toHaveLength(0);
   });
+
+  it("Kindle以外の商品 → 除外", () => {
+    const item = kindleItem({ format: "紙", P_base: 1000, P_kindle: 700 });
+    expect(judge([item])).toHaveLength(0);
+  });
+
+  it("P_kindleがnullの商品 → 除外", () => {
+    const item = kindleItem({ P_kindle: null });
+    expect(judge([item])).toHaveLength(0);
+  });
 });
