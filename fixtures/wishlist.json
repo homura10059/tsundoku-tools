@@ -1,0 +1,34 @@
+[
+  {
+    "title": "割引20%以上の本 ― タイトルA",
+    "url": "https://www.amazon.co.jp/dp/AAAAAAAAAA",
+    "format": "Kindle",
+    "P_base": 1500,
+    "P_kindle": 1050,
+    "Pt": 0
+  },
+  {
+    "title": "ポイント20%以上の本 ― タイトルB",
+    "url": "https://www.amazon.co.jp/dp/BBBBBBBBBB",
+    "format": "Kindle",
+    "P_base": 1500,
+    "P_kindle": 1500,
+    "Pt": 300
+  },
+  {
+    "title": "合算では20%超だが各々20%未満の本 ― タイトルC",
+    "url": "https://www.amazon.co.jp/dp/CCCCCCCCCC",
+    "format": "Kindle",
+    "P_base": 1000,
+    "P_kindle": 870,
+    "Pt": 100
+  },
+  {
+    "title": "紙の本 ― タイトルD（除外対象）",
+    "url": "https://www.amazon.co.jp/dp/DDDDDDDDDD",
+    "format": "紙",
+    "P_base": 1800,
+    "P_kindle": null,
+    "Pt": 0
+  }
+]
