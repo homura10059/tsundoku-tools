@@ -22,4 +22,10 @@ describe("judge", () => {
     const item = kindleItem({ P_base: 1000, P_kindle: 1000, Pt: 200 });
     expect(judge([item])).toHaveLength(1);
   });
+
+  it("合算では20%超だが各々は20%未満 → ヒットしない", () => {
+    // 割引率 13%、ポイント還元率 10%、合算 23% だがいずれも単独では20%未満
+    const item = kindleItem({ P_base: 1000, P_kindle: 870, Pt: 100 });
+    expect(judge([item])).toHaveLength(0);
+  });
 });
