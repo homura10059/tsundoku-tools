@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import type { Page } from "playwright";
 import type { Format, WishlistItem } from "./types.js";
 import { jitter } from "./util/jitter.js";
+import { debug } from "./util/logger.js";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -159,12 +160,14 @@ export function parseRawItem(raw: RawItem): WishlistItem {
     ? `${AMAZON_BASE_URL}${raw.url}`
     : raw.url;
   const { P_base, P_kindle } = parsePrice(raw.priceTexts);
+  const Pt = parsePoints(raw.pointsText);
+  debug(`${raw.title} | P_base=${P_base} P_kindle=${P_kindle} Pt=${Pt}`);
   return {
     title: raw.title,
     url,
     format: parseFormat(raw.bylineText),
     P_base,
     P_kindle,
-    Pt: parsePoints(raw.pointsText),
+    Pt,
   };
 }
