@@ -1,15 +1,9 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
+import { crawl } from "./crawler.js";
 import { judge } from "./judge.js";
 import { notify } from "./notify.js";
-import type { WishlistItem } from "./types.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const fixturesPath = resolve(__dirname, "../fixtures/wishlist.json");
-
-const items = JSON.parse(readFileSync(fixturesPath, "utf-8")) as WishlistItem[];
+const items = await crawl(config.wishlistUrl);
 const deals = judge(items);
 
 console.log(`${items.length}件中 ${deals.length}件が通知対象です。`);
