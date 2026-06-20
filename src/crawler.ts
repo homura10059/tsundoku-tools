@@ -1,5 +1,7 @@
 import { chromium } from "playwright";
+import type { Page } from "playwright";
 import type { Format, WishlistItem } from "./types.js";
+import { jitter } from "./util/jitter.js";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -20,9 +22,12 @@ export interface RawItem {
   pointsText: string;
 }
 
-export function parsePrice(priceTexts: string[]): { P_base: number | null; P_kindle: number | null } {
+export function parsePrice(priceTexts: string[]): {
+  P_base: number | null;
+  P_kindle: number | null;
+} {
   const prices = priceTexts
-    .map((t) => parseInt(t.replace(/[¥,]/g, ""), 10))
+    .map((t) => Number.parseInt(t.replace(/[¥,]/g, ""), 10))
     .filter((n) => !Number.isNaN(n));
 
   if (prices.length === 0) return { P_base: null, P_kindle: null };
@@ -35,7 +40,7 @@ export function parsePrice(priceTexts: string[]): { P_base: number | null; P_kin
 
 export function parsePoints(pointsText: string): number {
   const match = pointsText.match(/(\d+)\s*(?:pt|ポイント)/);
-  return match ? parseInt(match[1], 10) : 0;
+  return match ? Number.parseInt(match[1], 10) : 0;
 }
 
 export function parseFormat(bylineText: string): Format {
@@ -54,6 +59,35 @@ export function parseFormat(bylineText: string): Format {
 
 const AMAZON_BASE_URL = "https://www.amazon.co.jp";
 
+export const SCROLL_MAX_ITERATIONS = 20;
+
+export async function scrollToLoadAll(
+  page: Page,
+  waitFn: () => Promise<void> = jitter,
+): Promise<void> {
+  let prevCount = 0;
+  let stableRounds = 0;
+
+  for (let i = 0; i < SCROLL_MAX_ITERATIONS; i++) {
+    const currentCount = await page.evaluate(
+      (sel) =>
+        document.querySelectorAll(`${sel.itemList} ${sel.itemRow}`).length,
+      SELECTORS,
+    );
+
+    if (currentCount === prevCount) {
+      stableRounds++;
+      if (stableRounds >= 2) break;
+    } else {
+      stableRounds = 0;
+    }
+    prevCount = currentCount;
+
+    await page.keyboard.press("End");
+    await waitFn();
+  }
+}
+
 export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -63,36 +97,43 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
     });
     const page = await context.newPage();
     await page.goto(wishlistUrl, { waitUntil: "domcontentloaded" });
+    await jitter();
     await page.waitForSelector(SELECTORS.itemList, { timeout: 10_000 });
+    await scrollToLoadAll(page);
 
-    const rawItems = await page.evaluate<RawItem[], typeof SELECTORS>((selectors) => {
-      const rows = Array.from(
-        document.querySelectorAll(`${selectors.itemList} ${selectors.itemRow}`)
-      );
-      return rows.map((row) => {
-        const titleEl = row.querySelector(selectors.titleLink);
-        const bylineEl = row.querySelector(selectors.byline);
-        const priceAreaEl = row.querySelector(selectors.priceArea);
+    const rawItems = await page.evaluate<RawItem[], typeof SELECTORS>(
+      (selectors) => {
+        const rows = Array.from(
+          document.querySelectorAll(
+            `${selectors.itemList} ${selectors.itemRow}`,
+          ),
+        );
+        return rows.map((row) => {
+          const titleEl = row.querySelector(selectors.titleLink);
+          const bylineEl = row.querySelector(selectors.byline);
+          const priceAreaEl = row.querySelector(selectors.priceArea);
 
-        const priceTexts = Array.from(
-          (priceAreaEl ?? row).querySelectorAll("span")
-        )
-          .map((s) => s.textContent?.trim() ?? "")
-          .filter((t) => /^¥[\d,]+$/.test(t));
+          const priceTexts = Array.from(
+            (priceAreaEl ?? row).querySelectorAll("span"),
+          )
+            .map((s) => s.textContent?.trim() ?? "")
+            .filter((t) => /^¥[\d,]+$/.test(t));
 
-        const pointSpans = Array.from(row.querySelectorAll("span"))
-          .map((s) => s.textContent?.trim() ?? "")
-          .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
+          const pointSpans = Array.from(row.querySelectorAll("span"))
+            .map((s) => s.textContent?.trim() ?? "")
+            .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
 
-        return {
-          title: titleEl?.textContent?.trim() ?? "",
-          url: titleEl?.getAttribute("href") ?? "",
-          bylineText: bylineEl?.textContent?.trim() ?? "",
-          priceTexts,
-          pointsText: pointSpans[0] ?? "",
-        };
-      });
-    }, SELECTORS);
+          return {
+            title: titleEl?.textContent?.trim() ?? "",
+            url: titleEl?.getAttribute("href") ?? "",
+            bylineText: bylineEl?.textContent?.trim() ?? "",
+            priceTexts,
+            pointsText: pointSpans[0] ?? "",
+          };
+        });
+      },
+      SELECTORS,
+    );
 
     return rawItems
       .filter((raw) => raw.title !== "")
@@ -114,7 +155,9 @@ export function parseSafeRawItem(raw: RawItem): WishlistItem | null {
 }
 
 export function parseRawItem(raw: RawItem): WishlistItem {
-  const url = raw.url.startsWith("/") ? `${AMAZON_BASE_URL}${raw.url}` : raw.url;
+  const url = raw.url.startsWith("/")
+    ? `${AMAZON_BASE_URL}${raw.url}`
+    : raw.url;
   const { P_base, P_kindle } = parsePrice(raw.priceTexts);
   return {
     title: raw.title,
