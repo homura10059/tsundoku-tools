@@ -1,6 +1,10 @@
 import type { Deal } from "./types.js";
+import { jitter } from "./util/jitter.js";
+
+// ステートレス運用: 通知履歴は保持しない。セール継続中は毎回同じ商品が通知される。
 
 const THRESHOLD = 0.2;
+const CHUNK_SIZE = 5;
 
 function formatCurrency(amount: number): string {
   return `¥${amount.toLocaleString("ja-JP")}`;
@@ -47,18 +51,30 @@ function buildEmbed(deal: Deal): DiscordEmbed {
   return { title: deal.title, url: deal.url, color: 0xff9900, fields };
 }
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
 export async function notify(deals: Deal[], webhookUrl: string): Promise<void> {
-  for (const deal of deals) {
+  const chunks = chunk(deals, CHUNK_SIZE);
+  for (let i = 0; i < chunks.length; i++) {
+    const embeds = chunks[i].map(buildEmbed);
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds: [buildEmbed(deal)] }),
+      body: JSON.stringify({ embeds }),
     });
 
     if (!res.ok) {
-      console.error(
-        `Discord通知失敗: ${res.status} ${res.statusText} (${deal.title})`,
-      );
+      console.error(`Discord通知失敗: ${res.status} ${res.statusText}`);
+    }
+
+    if (i < chunks.length - 1) {
+      await jitter(2_000, 3_000);
     }
   }
 }
