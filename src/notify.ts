@@ -1,6 +1,6 @@
 import type { Deal } from "./types.js";
 
-const THRESHOLD = 0.20;
+const THRESHOLD = 0.2;
 
 function formatCurrency(amount: number): string {
   return `¥${amount.toLocaleString("ja-JP")}`;
@@ -29,11 +29,19 @@ function buildEmbed(deal: Deal): DiscordEmbed {
   ];
 
   if (deal.discountRate >= THRESHOLD) {
-    fields.push({ name: "割引率", value: formatRate(deal.discountRate), inline: true });
+    fields.push({
+      name: "割引率",
+      value: formatRate(deal.discountRate),
+      inline: true,
+    });
   }
 
   if (deal.pointRate >= THRESHOLD) {
-    fields.push({ name: "ポイント還元率", value: formatRate(deal.pointRate), inline: true });
+    fields.push({
+      name: "ポイント還元率",
+      value: formatRate(deal.pointRate),
+      inline: true,
+    });
   }
 
   return { title: deal.title, url: deal.url, color: 0xff9900, fields };
@@ -48,7 +56,9 @@ export async function notify(deals: Deal[], webhookUrl: string): Promise<void> {
     });
 
     if (!res.ok) {
-      console.error(`Discord通知失敗: ${res.status} ${res.statusText} (${deal.title})`);
+      console.error(
+        `Discord通知失敗: ${res.status} ${res.statusText} (${deal.title})`,
+      );
     }
   }
 }
