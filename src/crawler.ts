@@ -1,5 +1,18 @@
 import type { Format } from "./types.js";
 
+export function parsePrice(priceTexts: string[]): { P_base: number | null; P_kindle: number | null } {
+  const prices = priceTexts
+    .map((t) => parseInt(t.replace(/[¥,]/g, ""), 10))
+    .filter((n) => !Number.isNaN(n));
+
+  if (prices.length === 0) return { P_base: null, P_kindle: null };
+  if (prices.length === 1) return { P_base: null, P_kindle: prices[0] };
+
+  const max = Math.max(...prices);
+  const min = Math.min(...prices);
+  return { P_base: max, P_kindle: min };
+}
+
 export function parseFormat(bylineText: string): Format {
   if (bylineText.includes("Kindle")) return "Kindle";
   if (
