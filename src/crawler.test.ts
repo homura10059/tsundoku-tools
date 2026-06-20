@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFormat, parsePrice, parsePoints, parseRawItem } from "./crawler.js";
+import { parseFormat, parsePrice, parsePoints, parseRawItem, parseSafeRawItem } from "./crawler.js";
 import type { RawItem } from "./crawler.js";
 
 describe("parseFormat", () => {
@@ -69,6 +69,26 @@ describe("parsePoints", () => {
 
   it("'ポイントなし' → 0", () => {
     expect(parsePoints("ポイントなし")).toBe(0);
+  });
+});
+
+describe("parseSafeRawItem", () => {
+  const baseRaw: RawItem = {
+    title: "テスト本",
+    url: "https://www.amazon.co.jp/dp/AAAAAAAAAA",
+    bylineText: "Kindle版",
+    priceTexts: ["¥1,500", "¥1,000"],
+    pointsText: "80ポイント",
+  };
+
+  it("有効な RawItem → WishlistItem を返す", () => {
+    const result = parseSafeRawItem(baseRaw);
+    expect(result?.title).toBe("テスト本");
+  });
+
+  it("不正な入力 (null) → null を返しスローしない", () => {
+    expect(() => parseSafeRawItem(null as unknown as RawItem)).not.toThrow();
+    expect(parseSafeRawItem(null as unknown as RawItem)).toBeNull();
   });
 });
 

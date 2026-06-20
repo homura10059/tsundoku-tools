@@ -96,10 +96,20 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
 
     return rawItems
       .filter((raw) => raw.title !== "")
-      .map(parseRawItem)
+      .map(parseSafeRawItem)
+      .filter((item): item is WishlistItem => item !== null)
       .filter((item) => item.format === "Kindle");
   } finally {
     await browser.close();
+  }
+}
+
+export function parseSafeRawItem(raw: RawItem): WishlistItem | null {
+  try {
+    return parseRawItem(raw);
+  } catch (err) {
+    console.error("[crawler] Failed to parse item:", err);
+    return null;
   }
 }
 
