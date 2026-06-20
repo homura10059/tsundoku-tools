@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { parseFormat, parsePrice, parsePoints } from "./crawler.js";
+import { parseFormat, parsePrice, parsePoints, parseRawItem } from "./crawler.js";
+import type { RawItem } from "./crawler.js";
 
 describe("parseFormat", () => {
   it("'Kindle版' → 'Kindle'", () => {
@@ -68,5 +69,31 @@ describe("parsePoints", () => {
 
   it("'ポイントなし' → 0", () => {
     expect(parsePoints("ポイントなし")).toBe(0);
+  });
+});
+
+describe("parseRawItem", () => {
+  const baseRaw: RawItem = {
+    title: "テスト本",
+    url: "https://www.amazon.co.jp/dp/AAAAAAAAAA",
+    bylineText: "Kindle版",
+    priceTexts: ["¥1,500", "¥1,000"],
+    pointsText: "80ポイント",
+  };
+
+  it("フル RawItem → WishlistItem に変換される", () => {
+    expect(parseRawItem(baseRaw)).toEqual({
+      title: "テスト本",
+      url: "https://www.amazon.co.jp/dp/AAAAAAAAAA",
+      format: "Kindle",
+      P_base: 1500,
+      P_kindle: 1000,
+      Pt: 80,
+    });
+  });
+
+  it("相対パス URL を絶対 URL に補完する", () => {
+    const raw: RawItem = { ...baseRaw, url: "/dp/AAAAAAAAAA" };
+    expect(parseRawItem(raw).url).toBe("https://www.amazon.co.jp/dp/AAAAAAAAAA");
   });
 });

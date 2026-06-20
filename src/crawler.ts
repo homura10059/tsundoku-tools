@@ -1,4 +1,12 @@
-import type { Format } from "./types.js";
+import type { Format, WishlistItem } from "./types.js";
+
+export interface RawItem {
+  title: string;
+  url: string;
+  bylineText: string;
+  priceTexts: string[];
+  pointsText: string;
+}
 
 export function parsePrice(priceTexts: string[]): { P_base: number | null; P_kindle: number | null } {
   const prices = priceTexts
@@ -30,4 +38,19 @@ export function parseFormat(bylineText: string): Format {
     return "紙";
   }
   return "その他";
+}
+
+const AMAZON_BASE_URL = "https://www.amazon.co.jp";
+
+export function parseRawItem(raw: RawItem): WishlistItem {
+  const url = raw.url.startsWith("/") ? `${AMAZON_BASE_URL}${raw.url}` : raw.url;
+  const { P_base, P_kindle } = parsePrice(raw.priceTexts);
+  return {
+    title: raw.title,
+    url,
+    format: parseFormat(raw.bylineText),
+    P_base,
+    P_kindle,
+    Pt: parsePoints(raw.pointsText),
+  };
 }
