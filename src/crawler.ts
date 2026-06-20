@@ -13,6 +13,11 @@ export function parsePrice(priceTexts: string[]): { P_base: number | null; P_kin
   return { P_base: max, P_kindle: min };
 }
 
+export function parsePoints(pointsText: string): number {
+  const match = pointsText.match(/(\d+)\s*(?:pt|ポイント)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
 export function parseFormat(bylineText: string): Format {
   if (bylineText.includes("Kindle")) return "Kindle";
   if (

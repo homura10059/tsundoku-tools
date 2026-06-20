@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFormat, parsePrice } from "./crawler.js";
+import { parseFormat, parsePrice, parsePoints } from "./crawler.js";
 
 describe("parseFormat", () => {
   it("'Kindle版' → 'Kindle'", () => {
@@ -46,5 +46,27 @@ describe("parsePrice", () => {
 
   it("同額の場合は P_base と P_kindle が同じ値", () => {
     expect(parsePrice(["¥1,000", "¥1,000"])).toEqual({ P_base: 1000, P_kindle: 1000 });
+  });
+});
+
+describe("parsePoints", () => {
+  it("'80pt' → 80", () => {
+    expect(parsePoints("80pt")).toBe(80);
+  });
+
+  it("'80ポイント' → 80", () => {
+    expect(parsePoints("80ポイント")).toBe(80);
+  });
+
+  it("'80 ポイント' → 80", () => {
+    expect(parsePoints("80 ポイント")).toBe(80);
+  });
+
+  it("'' → 0", () => {
+    expect(parsePoints("")).toBe(0);
+  });
+
+  it("'ポイントなし' → 0", () => {
+    expect(parsePoints("ポイントなし")).toBe(0);
   });
 });
