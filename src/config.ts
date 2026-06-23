@@ -12,4 +12,5 @@ function requireEnv(key: string): string {
 export const config = {
   wishlistUrl: requireEnv("WISHLIST_URL"),
   discordWebhookUrl: requireEnv("DISCORD_WEBHOOK_URL"),
+  discordErrorWebhookUrl: requireEnv("DISCORD_ERROR_WEBHOOK_URL"),
 };

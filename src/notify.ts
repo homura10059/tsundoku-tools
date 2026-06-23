@@ -1,5 +1,6 @@
 import type { Deal } from "./types.js";
 import { jitter } from "./util/jitter.js";
+import type { ValidationError } from "./validate.js";
 
 // ステートレス運用: 通知履歴は保持しない。セール継続中は毎回同じ商品が通知される。
 
@@ -76,5 +77,41 @@ export async function notify(deals: Deal[], webhookUrl: string): Promise<void> {
     if (i < chunks.length - 1) {
       await jitter(2_000, 3_000);
     }
+  }
+}
+
+export async function notifyError(
+  errors: ValidationError[],
+  webhookUrl: string,
+): Promise<void> {
+  const fields = errors.map((error) => {
+    if (error.type === "MISSING_REQUIRED_FIELDS") {
+      return {
+        name: "必須フィールド欠損",
+        value: `${error.items.length}件のアイテムで title または url が空です。`,
+        inline: false,
+      };
+    }
+    return {
+      name: "価格情報が全滅",
+      value: "全アイテムで価格情報が取得できませんでした。",
+      inline: false,
+    };
+  });
+
+  const embed = {
+    title: "ウィッシュリスト監視エラー",
+    color: 0xff0000,
+    fields,
+  };
+
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ embeds: [embed] }),
+  });
+
+  if (!res.ok) {
+    console.error(`Discord エラー通知失敗: ${res.status} ${res.statusText}`);
   }
 }
