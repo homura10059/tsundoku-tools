@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Deal } from "./types.js";
+import type { ValidationError } from "./validate.js";
 
 vi.mock("./util/jitter.js", () => ({
   jitter: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { notify } from "./notify.js";
+import { notify, notifyError } from "./notify.js";
 import { jitter } from "./util/jitter.js";
 
 const WEBHOOK = "https://discord.example.com/webhook";
@@ -90,6 +91,86 @@ describe("notify", () => {
     );
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(notify(makeDeals(1), WEBHOOK)).resolves.toBeUndefined();
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("notifyError", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+  });
+
+  it("エラーを fetch で1回送信する", async () => {
+    const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
+    await notifyError(errors, WEBHOOK);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("送信ボディに embeds が含まれる", async () => {
+    const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
+    await notifyError(errors, WEBHOOK);
+    const body = JSON.parse(
+      vi.mocked(fetch).mock.calls[0][1]?.body as string,
+    );
+    expect(body.embeds).toHaveLength(1);
+  });
+
+  it("MISSING_REQUIRED_FIELDS のフィールドが embed に含まれる", async () => {
+    const errors: ValidationError[] = [
+      {
+        type: "MISSING_REQUIRED_FIELDS",
+        items: [
+          {
+            title: "",
+            url: "https://example.com",
+            format: "Kindle",
+            P_base: null,
+            P_kindle: null,
+            Pt: 0,
+          },
+        ],
+      },
+    ];
+    await notifyError(errors, WEBHOOK);
+    const body = JSON.parse(
+      vi.mocked(fetch).mock.calls[0][1]?.body as string,
+    );
+    const fields: { name: string }[] = body.embeds[0].fields;
+    expect(fields.some((f) => f.name === "必須フィールド欠損")).toBe(true);
+  });
+
+  it("ALL_PRICES_MISSING のフィールドが embed に含まれる", async () => {
+    const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
+    await notifyError(errors, WEBHOOK);
+    const body = JSON.parse(
+      vi.mocked(fetch).mock.calls[0][1]?.body as string,
+    );
+    const fields: { name: string }[] = body.embeds[0].fields;
+    expect(fields.some((f) => f.name === "価格情報が全滅")).toBe(true);
+  });
+
+  it("embed の color が赤（0xff0000）", async () => {
+    const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
+    await notifyError(errors, WEBHOOK);
+    const body = JSON.parse(
+      vi.mocked(fetch).mock.calls[0][1]?.body as string,
+    );
+    expect(body.embeds[0].color).toBe(0xff0000);
+  });
+
+  it("fetch 失敗時にエラーログを出し例外を投げない", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+      }),
+    );
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
+    await expect(notifyError(errors, WEBHOOK)).resolves.toBeUndefined();
     expect(consoleSpy).toHaveBeenCalled();
     consoleSpy.mockRestore();
   });

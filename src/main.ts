@@ -1,9 +1,20 @@
 import { config } from "./config.js";
 import { crawl } from "./crawler.js";
 import { judge } from "./judge.js";
-import { notify } from "./notify.js";
+import { notify, notifyError } from "./notify.js";
+import { validate } from "./validate.js";
 
 const items = await crawl(config.wishlistUrl);
+
+const errors = validate(items);
+if (errors.length > 0) {
+  console.error(
+    `バリデーションエラー: ${errors.map((e) => e.type).join(", ")}`,
+  );
+  await notifyError(errors, config.discordErrorWebhookUrl);
+  process.exit(1);
+}
+
 const deals = judge(items);
 
 console.log(`${items.length}件中 ${deals.length}件が通知対象です。`);
