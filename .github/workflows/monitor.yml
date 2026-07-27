@@ -34,3 +34,4 @@ jobs:
         env:
           WISHLIST_URL: ${{ secrets.WISHLIST_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_ERROR_WEBHOOK_URL: ${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
