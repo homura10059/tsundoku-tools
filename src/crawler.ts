@@ -128,14 +128,13 @@ export async function scrollToLoadAll(
 interface DetailPageDiagnostics {
   selectorHits: Record<string, number>;
   labelHits: Record<string, number>;
-  tmmSwatchesHtml: string | null;
+  swatchIds: string[];
+  nonKindleSwatchHtml: string | null;
 }
 
 const DETAIL_DIAG_SELECTORS = [
   "#tmmSwatches",
   "#tmm-grid-swatch-KINDLE",
-  "#tmm-grid-swatch-HARDCOVER",
-  "#tmm-grid-swatch-PAPERBACK",
   ".a-price",
   ".a-text-strike",
   "#formats",
@@ -167,11 +166,17 @@ async function diagnoseDetailPage(page: Page, url: string): Promise<void> {
         ).length;
       }
 
-      const tmmSwatchesHtml =
-        document.querySelector("#tmmSwatches")?.outerHTML?.slice(0, 2000) ??
-        null;
+      const swatchEls = Array.from(
+        document.querySelectorAll('[id^="tmm-grid-swatch-"]'),
+      );
+      const swatchIds = swatchEls.map((el) => el.id);
+      const nonKindleSwatch = swatchEls.find(
+        (el) => el.id !== "tmm-grid-swatch-KINDLE",
+      );
+      const nonKindleSwatchHtml =
+        nonKindleSwatch?.outerHTML?.slice(0, 3000) ?? null;
 
-      return { selectorHits, labelHits, tmmSwatchesHtml };
+      return { selectorHits, labelHits, swatchIds, nonKindleSwatchHtml };
     },
     { selectors: DETAIL_DIAG_SELECTORS, labels: DETAIL_DIAG_LABELS },
   );
@@ -180,8 +185,9 @@ async function diagnoseDetailPage(page: Page, url: string): Promise<void> {
     `[diag-detail] selectorHits=${JSON.stringify(diagnostics.selectorHits)}`,
   );
   debug(`[diag-detail] labelHits=${JSON.stringify(diagnostics.labelHits)}`);
+  debug(`[diag-detail] swatchIds=${JSON.stringify(diagnostics.swatchIds)}`);
   debug(
-    `[diag-detail] tmmSwatchesHtml=${diagnostics.tmmSwatchesHtml ?? "(not found)"}`,
+    `[diag-detail] nonKindleSwatchHtml=${diagnostics.nonKindleSwatchHtml ?? "(not found)"}`,
   );
 }
 
