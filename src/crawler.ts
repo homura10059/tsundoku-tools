@@ -125,6 +125,66 @@ export async function scrollToLoadAll(
   }
 }
 
+interface DetailPageDiagnostics {
+  selectorHits: Record<string, number>;
+  labelHits: Record<string, number>;
+  tmmSwatchesHtml: string | null;
+}
+
+const DETAIL_DIAG_SELECTORS = [
+  "#tmmSwatches",
+  "#tmm-grid-swatch-KINDLE",
+  "#tmm-grid-swatch-HARDCOVER",
+  "#tmm-grid-swatch-PAPERBACK",
+  ".a-price",
+  ".a-text-strike",
+  "#formats",
+] as const;
+
+const DETAIL_DIAG_LABELS = ["単行本", "文庫", "参考価格", "定価"] as const;
+
+async function diagnoseDetailPage(page: Page, url: string): Promise<void> {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await jitter();
+
+  const diagnostics = await page.evaluate<
+    DetailPageDiagnostics,
+    { selectors: readonly string[]; labels: readonly string[] }
+  >(
+    ({ selectors, labels }) => {
+      const selectorHits: Record<string, number> = {};
+      for (const sel of selectors) {
+        selectorHits[sel] = document.querySelectorAll(sel).length;
+      }
+
+      const labelHits: Record<string, number> = {};
+      for (const label of labels) {
+        labelHits[label] = Array.from(
+          document.querySelectorAll("body *"),
+        ).filter(
+          (el) =>
+            el.children.length === 0 && (el.textContent ?? "").includes(label),
+        ).length;
+      }
+
+      const tmmSwatchesHtml =
+        document.querySelector("#tmmSwatches")?.outerHTML?.slice(0, 2000) ??
+        null;
+
+      return { selectorHits, labelHits, tmmSwatchesHtml };
+    },
+    { selectors: DETAIL_DIAG_SELECTORS, labels: DETAIL_DIAG_LABELS },
+  );
+
+  debug(
+    `[diag-detail] selectorHits=${JSON.stringify(diagnostics.selectorHits)}`,
+  );
+  debug(`[diag-detail] labelHits=${JSON.stringify(diagnostics.labelHits)}`);
+  debug(
+    `[diag-detail] tmmSwatchesHtml=${diagnostics.tmmSwatchesHtml ?? "(not found)"}`,
+  );
+}
+
 export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -194,11 +254,23 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
 
     logDiagnostics(diagnostics);
 
-    return rawItems
+    const kindleItems = rawItems
       .filter((raw) => raw.title !== "")
       .map(parseSafeRawItem)
       .filter((item): item is WishlistItem => item !== null)
       .filter((item) => item.format === "Kindle");
+
+    if (process.env.DEBUG) {
+      for (const item of kindleItems.slice(0, 2)) {
+        try {
+          await diagnoseDetailPage(page, item.url);
+        } catch (err) {
+          debug(`[diag-detail] failed: ${err}`);
+        }
+      }
+    }
+
+    return kindleItems;
   } finally {
     await browser.close();
   }
