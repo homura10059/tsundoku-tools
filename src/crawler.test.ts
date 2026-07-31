@@ -3,9 +3,9 @@ import {
   SCROLL_MAX_ITERATIONS,
   parseFormat,
   parsePoints,
-  parsePrice,
   parseRawItem,
   parseSafeRawItem,
+  parseYenAmount,
   scrollToLoadAll,
 } from "./crawler.js";
 import type { RawItem } from "./crawler.js";
@@ -75,27 +75,29 @@ describe("parseFormat", () => {
   });
 });
 
-describe("parsePrice", () => {
-  it("2つあれば大きい方が P_base、小さい方が P_kindle", () => {
-    expect(parsePrice(["¥1,500", "¥1,000"])).toEqual({
-      P_base: 1500,
-      P_kindle: 1000,
-    });
+describe("parseYenAmount", () => {
+  it("全角円記号+カンマ → 数値 (実データの主パターン)", () => {
+    expect(parseYenAmount("￥1,500")).toBe(1500);
   });
 
-  it("1つだけなら P_base は null、P_kindle に格納", () => {
-    expect(parsePrice(["¥1,000"])).toEqual({ P_base: null, P_kindle: 1000 });
+  it("半角円記号 → 数値", () => {
+    expect(parseYenAmount("¥1,500")).toBe(1500);
   });
 
-  it("空配列なら両方 null", () => {
-    expect(parsePrice([])).toEqual({ P_base: null, P_kindle: null });
+  it("前後の空白を許容する", () => {
+    expect(parseYenAmount(" ￥792 ")).toBe(792);
   });
 
-  it("同額の場合は P_base と P_kindle が同じ値", () => {
-    expect(parsePrice(["¥1,000", "¥1,000"])).toEqual({
-      P_base: 1000,
-      P_kindle: 1000,
-    });
+  it("全角数字を含む場合も変換する", () => {
+    expect(parseYenAmount("￥９８０")).toBe(980);
+  });
+
+  it("空文字列 → null", () => {
+    expect(parseYenAmount("")).toBeNull();
+  });
+
+  it("数値を含まない文字列 → null", () => {
+    expect(parseYenAmount("在庫なし")).toBeNull();
   });
 });
 
@@ -126,7 +128,7 @@ describe("parseSafeRawItem", () => {
     title: "テスト本",
     url: "https://www.amazon.co.jp/dp/AAAAAAAAAA",
     bylineText: "Kindle版",
-    priceTexts: ["¥1,500", "¥1,000"],
+    currentPriceText: "￥1,000",
     pointsText: "80ポイント",
   };
 
@@ -146,16 +148,16 @@ describe("parseRawItem", () => {
     title: "テスト本",
     url: "https://www.amazon.co.jp/dp/AAAAAAAAAA",
     bylineText: "Kindle版",
-    priceTexts: ["¥1,500", "¥1,000"],
+    currentPriceText: "￥1,000",
     pointsText: "80ポイント",
   };
 
-  it("フル RawItem → WishlistItem に変換される", () => {
+  it("フル RawItem → WishlistItem に変換される (P_base は詳細ページ巡回前なので null)", () => {
     expect(parseRawItem(baseRaw)).toEqual({
       title: "テスト本",
       url: "https://www.amazon.co.jp/dp/AAAAAAAAAA",
       format: "Kindle",
-      P_base: 1500,
+      P_base: null,
       P_kindle: 1000,
       Pt: 80,
     });

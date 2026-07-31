@@ -50,9 +50,7 @@ describe("validate", () => {
     });
 
     it("全 item で P_base も P_kindle も null → エラーあり", () => {
-      const errors = validate([
-        kindleItem({ P_base: null, P_kindle: null }),
-      ]);
+      const errors = validate([kindleItem({ P_base: null, P_kindle: null })]);
       expect(errors).toContainEqual({ type: "ALL_PRICES_MISSING" });
     });
 
@@ -76,5 +74,79 @@ describe("validate", () => {
     const errors = validate([item]);
     expect(errors.some((e) => e.type === "MISSING_REQUIRED_FIELDS")).toBe(true);
     expect(errors.some((e) => e.type === "ALL_PRICES_MISSING")).toBe(true);
+  });
+
+  describe("PRICE_EXTRACTION_DEGRADED", () => {
+    it("P_kindle 取得率が50%未満 → エラーあり", () => {
+      const items = [
+        kindleItem({ P_kindle: 800 }),
+        kindleItem({ P_kindle: null, P_base: null }),
+        kindleItem({ P_kindle: null, P_base: null }),
+      ];
+      const errors = validate(items);
+      expect(errors).toContainEqual({
+        type: "PRICE_EXTRACTION_DEGRADED",
+        foundCount: 1,
+        totalCount: 3,
+      });
+    });
+
+    it("P_kindle 取得率がちょうど50% → エラーなし", () => {
+      const items = [
+        kindleItem({ P_kindle: 800 }),
+        kindleItem({ P_kindle: null, P_base: null }),
+      ];
+      expect(validate(items)).not.toContainEqual(
+        expect.objectContaining({ type: "PRICE_EXTRACTION_DEGRADED" }),
+      );
+    });
+
+    it("ALL_PRICES_MISSING が発生する場合は重複して出さない", () => {
+      const items = [kindleItem({ P_base: null, P_kindle: null })];
+      const errors = validate(items);
+      expect(errors).toContainEqual({ type: "ALL_PRICES_MISSING" });
+      expect(errors).not.toContainEqual(
+        expect.objectContaining({ type: "PRICE_EXTRACTION_DEGRADED" }),
+      );
+    });
+  });
+
+  describe("REFERENCE_PRICE_EXTRACTION_DEGRADED", () => {
+    it("5件以上あり P_base が1件も取れていない → エラーあり", () => {
+      const items = Array.from({ length: 5 }, () =>
+        kindleItem({ P_base: null }),
+      );
+      const errors = validate(items);
+      expect(errors).toContainEqual({
+        type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
+        totalCount: 5,
+      });
+    });
+
+    it("紙版が無い商品が混ざっているだけ(P_base が一部null)ならエラーなし", () => {
+      const items = [
+        kindleItem({ P_base: 1000 }),
+        kindleItem({ P_base: null }),
+        kindleItem({ P_base: null }),
+        kindleItem({ P_base: null }),
+        kindleItem({ P_base: null }),
+      ];
+      expect(validate(items)).not.toContainEqual(
+        expect.objectContaining({
+          type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
+        }),
+      );
+    });
+
+    it("件数が閾値未満なら P_base 全滅でもエラーにしない", () => {
+      const items = Array.from({ length: 4 }, () =>
+        kindleItem({ P_base: null }),
+      );
+      expect(validate(items)).not.toContainEqual(
+        expect.objectContaining({
+          type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
+        }),
+      );
+    });
   });
 });

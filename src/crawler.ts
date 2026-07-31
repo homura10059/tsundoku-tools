@@ -7,7 +7,7 @@ import { debug } from "./util/logger.js";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-const SELECTORS = {
+export const SELECTORS = {
   itemList: "#g-items",
   itemRow: "li[data-id]",
   titleLink: "a[id^='itemName_']",
@@ -19,60 +19,78 @@ export interface RawItem {
   title: string;
   url: string;
   bylineText: string;
-  priceTexts: string[];
+  currentPriceText: string;
   pointsText: string;
 }
 
-interface Diagnostics {
-  rowCount: number;
-  priceAreaFoundCount: number;
-  selectorHitCounts: {
-    aPrice: number;
-    aOffscreen: number;
-    aPriceWhole: number;
-    aTextStrike: number;
-  };
-  sampleSpans: string[][];
-}
+export function extractRawItems(
+  selectors: typeof SELECTORS,
+  root: ParentNode = document,
+): RawItem[] {
+  function extractCurrentPriceText(
+    priceAreaEl: Element | null,
+    row: Element,
+  ): string {
+    const area = priceAreaEl ?? row;
 
-function describeYenCodepoints(text: string): string[] {
-  return Array.from(text)
-    .filter((ch) => ch === "¥" || ch === "￥")
-    .map(
-      (ch) =>
-        `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`,
-    );
-}
+    const offscreen = area.querySelector(".a-offscreen");
+    if (offscreen?.textContent?.trim()) return offscreen.textContent.trim();
 
-function logDiagnostics(diagnostics: Diagnostics): void {
-  debug(
-    `[diag] rowCount=${diagnostics.rowCount} priceAreaFoundCount=${diagnostics.priceAreaFoundCount}`,
+    const whole = area.querySelector(".a-price-whole");
+    if (whole?.textContent?.trim()) return whole.textContent.trim();
+
+    const match = (area.textContent ?? "").match(/[¥￥]\s*[\d,０-９]+/);
+    return match ? match[0].trim() : "";
+  }
+
+  const rows = Array.from(
+    root.querySelectorAll(`${selectors.itemList} ${selectors.itemRow}`),
   );
-  debug(
-    `[diag] selectorHitCounts=${JSON.stringify(diagnostics.selectorHitCounts)}`,
-  );
-  diagnostics.sampleSpans.forEach((spans, i) => {
-    const codepoints = spans.flatMap(describeYenCodepoints);
-    debug(
-      `[diag] row${i} spans=${JSON.stringify(spans)} yenCodepoints=${JSON.stringify(codepoints)}`,
-    );
+
+  return rows.map((row) => {
+    const titleEl = row.querySelector(selectors.titleLink);
+    const bylineEl = row.querySelector(selectors.byline);
+    const priceAreaEl = row.querySelector(selectors.priceArea);
+
+    const pointSpans = Array.from(row.querySelectorAll("span"))
+      .map((s) => s.textContent?.trim() ?? "")
+      .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
+
+    return {
+      title: titleEl?.textContent?.trim() ?? "",
+      url: titleEl?.getAttribute("href") ?? "",
+      bylineText: bylineEl?.textContent?.trim() ?? "",
+      currentPriceText: extractCurrentPriceText(priceAreaEl, row),
+      pointsText: pointSpans[0] ?? "",
+    };
   });
 }
 
-export function parsePrice(priceTexts: string[]): {
-  P_base: number | null;
-  P_kindle: number | null;
-} {
-  const prices = priceTexts
-    .map((t) => Number.parseInt(t.replace(/[¥,]/g, ""), 10))
-    .filter((n) => !Number.isNaN(n));
+export function extractReferencePriceText(root: ParentNode = document): string {
+  const swatches = Array.from(
+    root.querySelectorAll('[id^="tmm-grid-swatch-"]'),
+  );
+  const nonKindle = swatches.find((el) => el.id !== "tmm-grid-swatch-KINDLE");
+  if (!nonKindle) return "";
 
-  if (prices.length === 0) return { P_base: null, P_kindle: null };
-  if (prices.length === 1) return { P_base: null, P_kindle: prices[0] };
+  const priceEl = nonKindle.querySelector(".slot-price span[aria-label]");
+  const label = priceEl?.getAttribute("aria-label")?.trim();
+  if (label) return label;
 
-  const max = Math.max(...prices);
-  const min = Math.min(...prices);
-  return { P_base: max, P_kindle: min };
+  const text = priceEl?.textContent?.trim();
+  if (text) return text;
+
+  const match = (nonKindle.textContent ?? "").match(/[¥￥]\s*[\d,０-９]+/);
+  return match ? match[0].trim() : "";
+}
+
+export function parseYenAmount(text: string): number | null {
+  if (!text) return null;
+  const normalized = text
+    .replace(/[¥￥,\s]/g, "")
+    .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0));
+  const n = Number.parseInt(normalized, 10);
+  return Number.isNaN(n) ? null : n;
 }
 
 export function parsePoints(pointsText: string): number {
@@ -125,70 +143,24 @@ export async function scrollToLoadAll(
   }
 }
 
-interface DetailPageDiagnostics {
-  selectorHits: Record<string, number>;
-  labelHits: Record<string, number>;
-  swatchIds: string[];
-  nonKindleSwatchHtml: string | null;
-}
-
-const DETAIL_DIAG_SELECTORS = [
-  "#tmmSwatches",
-  "#tmm-grid-swatch-KINDLE",
-  ".a-price",
-  ".a-text-strike",
-  "#formats",
-] as const;
-
-const DETAIL_DIAG_LABELS = ["単行本", "文庫", "参考価格", "定価"] as const;
-
-async function diagnoseDetailPage(page: Page, url: string): Promise<void> {
-  await page.goto(url, { waitUntil: "domcontentloaded" });
-  await jitter();
-
-  const diagnostics = await page.evaluate<
-    DetailPageDiagnostics,
-    { selectors: readonly string[]; labels: readonly string[] }
-  >(
-    ({ selectors, labels }) => {
-      const selectorHits: Record<string, number> = {};
-      for (const sel of selectors) {
-        selectorHits[sel] = document.querySelectorAll(sel).length;
-      }
-
-      const labelHits: Record<string, number> = {};
-      for (const label of labels) {
-        labelHits[label] = Array.from(
-          document.querySelectorAll("body *"),
-        ).filter(
-          (el) =>
-            el.children.length === 0 && (el.textContent ?? "").includes(label),
-        ).length;
-      }
-
-      const swatchEls = Array.from(
-        document.querySelectorAll('[id^="tmm-grid-swatch-"]'),
-      );
-      const swatchIds = swatchEls.map((el) => el.id);
-      const nonKindleSwatch = swatchEls.find(
-        (el) => el.id !== "tmm-grid-swatch-KINDLE",
-      );
-      const nonKindleSwatchHtml =
-        nonKindleSwatch?.outerHTML?.slice(0, 3000) ?? null;
-
-      return { selectorHits, labelHits, swatchIds, nonKindleSwatchHtml };
-    },
-    { selectors: DETAIL_DIAG_SELECTORS, labels: DETAIL_DIAG_LABELS },
-  );
-
-  debug(
-    `[diag-detail] selectorHits=${JSON.stringify(diagnostics.selectorHits)}`,
-  );
-  debug(`[diag-detail] labelHits=${JSON.stringify(diagnostics.labelHits)}`);
-  debug(`[diag-detail] swatchIds=${JSON.stringify(diagnostics.swatchIds)}`);
-  debug(
-    `[diag-detail] nonKindleSwatchHtml=${diagnostics.nonKindleSwatchHtml ?? "(not found)"}`,
-  );
+async function fetchReferencePrice(
+  page: Page,
+  url: string,
+): Promise<number | null> {
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await jitter();
+    const text = await page.evaluate<string, undefined>(
+      extractReferencePriceText,
+      undefined,
+    );
+    const P_base = parseYenAmount(text);
+    debug(`[detail] P_base=${P_base}`);
+    return P_base;
+  } catch (err) {
+    console.error("[crawler] Failed to fetch reference price:", err);
+    return null;
+  }
 }
 
 export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
@@ -204,61 +176,7 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
     await page.waitForSelector(SELECTORS.itemList, { timeout: 10_000 });
     await scrollToLoadAll(page);
 
-    const { rawItems, diagnostics } = await page.evaluate<
-      { rawItems: RawItem[]; diagnostics: Diagnostics },
-      typeof SELECTORS
-    >((selectors) => {
-      const rows = Array.from(
-        document.querySelectorAll(`${selectors.itemList} ${selectors.itemRow}`),
-      );
-
-      const items = rows.map((row) => {
-        const titleEl = row.querySelector(selectors.titleLink);
-        const bylineEl = row.querySelector(selectors.byline);
-        const priceAreaEl = row.querySelector(selectors.priceArea);
-
-        const priceTexts = Array.from(
-          (priceAreaEl ?? row).querySelectorAll("span"),
-        )
-          .map((s) => s.textContent?.trim() ?? "")
-          .filter((t) => /^¥[\d,]+$/.test(t));
-
-        const pointSpans = Array.from(row.querySelectorAll("span"))
-          .map((s) => s.textContent?.trim() ?? "")
-          .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
-
-        return {
-          title: titleEl?.textContent?.trim() ?? "",
-          url: titleEl?.getAttribute("href") ?? "",
-          bylineText: bylineEl?.textContent?.trim() ?? "",
-          priceTexts,
-          pointsText: pointSpans[0] ?? "",
-        };
-      });
-
-      const diagnostics = {
-        rowCount: rows.length,
-        priceAreaFoundCount: rows.filter((row) =>
-          row.querySelector(selectors.priceArea),
-        ).length,
-        selectorHitCounts: {
-          aPrice: document.querySelectorAll(".a-price").length,
-          aOffscreen: document.querySelectorAll(".a-offscreen").length,
-          aPriceWhole: document.querySelectorAll(".a-price-whole").length,
-          aTextStrike: document.querySelectorAll(".a-text-strike").length,
-        },
-        sampleSpans: rows.slice(0, 3).map((row) => {
-          const priceAreaEl = row.querySelector(selectors.priceArea);
-          return Array.from((priceAreaEl ?? row).querySelectorAll("span"))
-            .map((s) => s.textContent?.trim() ?? "")
-            .filter((t) => /\d/.test(t));
-        }),
-      };
-
-      return { rawItems: items, diagnostics };
-    }, SELECTORS);
-
-    logDiagnostics(diagnostics);
+    const rawItems = await page.evaluate(extractRawItems, SELECTORS);
 
     const kindleItems = rawItems
       .filter((raw) => raw.title !== "")
@@ -266,17 +184,13 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
       .filter((item): item is WishlistItem => item !== null)
       .filter((item) => item.format === "Kindle");
 
-    if (process.env.DEBUG) {
-      for (const item of kindleItems.slice(0, 2)) {
-        try {
-          await diagnoseDetailPage(page, item.url);
-        } catch (err) {
-          debug(`[diag-detail] failed: ${err}`);
-        }
-      }
+    const items: WishlistItem[] = [];
+    for (const item of kindleItems) {
+      const P_base = await fetchReferencePrice(page, item.url);
+      items.push({ ...item, P_base });
     }
 
-    return kindleItems;
+    return items;
   } finally {
     await browser.close();
   }
@@ -295,14 +209,14 @@ export function parseRawItem(raw: RawItem): WishlistItem {
   const url = raw.url.startsWith("/")
     ? `${AMAZON_BASE_URL}${raw.url}`
     : raw.url;
-  const { P_base, P_kindle } = parsePrice(raw.priceTexts);
+  const P_kindle = parseYenAmount(raw.currentPriceText);
   const Pt = parsePoints(raw.pointsText);
-  debug(`${raw.title} | P_base=${P_base} P_kindle=${P_kindle} Pt=${Pt}`);
+  debug(`${raw.title} | P_kindle=${P_kindle} Pt=${Pt}`);
   return {
     title: raw.title,
     url,
     format: parseFormat(raw.bylineText),
-    P_base,
+    P_base: null,
     P_kindle,
     Pt,
   };
