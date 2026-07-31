@@ -3,7 +3,12 @@ name: Monitor Wishlist
 on:
   schedule:
     - cron: "0 0 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "診断ログ(DEBUG)を有効にする"
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -35,3 +40,4 @@ jobs:
           WISHLIST_URL: ${{ secrets.WISHLIST_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_ERROR_WEBHOOK_URL: ${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
+          DEBUG: ${{ inputs.debug && '1' || '' }}

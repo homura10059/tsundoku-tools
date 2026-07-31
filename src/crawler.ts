@@ -23,6 +23,42 @@ export interface RawItem {
   pointsText: string;
 }
 
+interface Diagnostics {
+  rowCount: number;
+  priceAreaFoundCount: number;
+  selectorHitCounts: {
+    aPrice: number;
+    aOffscreen: number;
+    aPriceWhole: number;
+    aTextStrike: number;
+  };
+  sampleSpans: string[][];
+}
+
+function describeYenCodepoints(text: string): string[] {
+  return Array.from(text)
+    .filter((ch) => ch === "¥" || ch === "￥")
+    .map(
+      (ch) =>
+        `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`,
+    );
+}
+
+function logDiagnostics(diagnostics: Diagnostics): void {
+  debug(
+    `[diag] rowCount=${diagnostics.rowCount} priceAreaFoundCount=${diagnostics.priceAreaFoundCount}`,
+  );
+  debug(
+    `[diag] selectorHitCounts=${JSON.stringify(diagnostics.selectorHitCounts)}`,
+  );
+  diagnostics.sampleSpans.forEach((spans, i) => {
+    const codepoints = spans.flatMap(describeYenCodepoints);
+    debug(
+      `[diag] row${i} spans=${JSON.stringify(spans)} yenCodepoints=${JSON.stringify(codepoints)}`,
+    );
+  });
+}
+
 export function parsePrice(priceTexts: string[]): {
   P_base: number | null;
   P_kindle: number | null;
@@ -102,39 +138,61 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
     await page.waitForSelector(SELECTORS.itemList, { timeout: 10_000 });
     await scrollToLoadAll(page);
 
-    const rawItems = await page.evaluate<RawItem[], typeof SELECTORS>(
-      (selectors) => {
-        const rows = Array.from(
-          document.querySelectorAll(
-            `${selectors.itemList} ${selectors.itemRow}`,
-          ),
-        );
-        return rows.map((row) => {
-          const titleEl = row.querySelector(selectors.titleLink);
-          const bylineEl = row.querySelector(selectors.byline);
+    const { rawItems, diagnostics } = await page.evaluate<
+      { rawItems: RawItem[]; diagnostics: Diagnostics },
+      typeof SELECTORS
+    >((selectors) => {
+      const rows = Array.from(
+        document.querySelectorAll(`${selectors.itemList} ${selectors.itemRow}`),
+      );
+
+      const items = rows.map((row) => {
+        const titleEl = row.querySelector(selectors.titleLink);
+        const bylineEl = row.querySelector(selectors.byline);
+        const priceAreaEl = row.querySelector(selectors.priceArea);
+
+        const priceTexts = Array.from(
+          (priceAreaEl ?? row).querySelectorAll("span"),
+        )
+          .map((s) => s.textContent?.trim() ?? "")
+          .filter((t) => /^¥[\d,]+$/.test(t));
+
+        const pointSpans = Array.from(row.querySelectorAll("span"))
+          .map((s) => s.textContent?.trim() ?? "")
+          .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
+
+        return {
+          title: titleEl?.textContent?.trim() ?? "",
+          url: titleEl?.getAttribute("href") ?? "",
+          bylineText: bylineEl?.textContent?.trim() ?? "",
+          priceTexts,
+          pointsText: pointSpans[0] ?? "",
+        };
+      });
+
+      const diagnostics = {
+        rowCount: rows.length,
+        priceAreaFoundCount: rows.filter((row) =>
+          row.querySelector(selectors.priceArea),
+        ).length,
+        selectorHitCounts: {
+          aPrice: document.querySelectorAll(".a-price").length,
+          aOffscreen: document.querySelectorAll(".a-offscreen").length,
+          aPriceWhole: document.querySelectorAll(".a-price-whole").length,
+          aTextStrike: document.querySelectorAll(".a-text-strike").length,
+        },
+        sampleSpans: rows.slice(0, 3).map((row) => {
           const priceAreaEl = row.querySelector(selectors.priceArea);
-
-          const priceTexts = Array.from(
-            (priceAreaEl ?? row).querySelectorAll("span"),
-          )
+          return Array.from((priceAreaEl ?? row).querySelectorAll("span"))
             .map((s) => s.textContent?.trim() ?? "")
-            .filter((t) => /^¥[\d,]+$/.test(t));
+            .filter((t) => /\d/.test(t));
+        }),
+      };
 
-          const pointSpans = Array.from(row.querySelectorAll("span"))
-            .map((s) => s.textContent?.trim() ?? "")
-            .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
+      return { rawItems: items, diagnostics };
+    }, SELECTORS);
 
-          return {
-            title: titleEl?.textContent?.trim() ?? "",
-            url: titleEl?.getAttribute("href") ?? "",
-            bylineText: bylineEl?.textContent?.trim() ?? "",
-            priceTexts,
-            pointsText: pointSpans[0] ?? "",
-          };
-        });
-      },
-      SELECTORS,
-    );
+    logDiagnostics(diagnostics);
 
     return rawItems
       .filter((raw) => raw.title !== "")
