@@ -27,22 +27,12 @@ export function extractRawItems(
   selectors: typeof SELECTORS,
   root: ParentNode = document,
 ): RawItem[] {
-  function extractCurrentPriceText(
-    priceAreaEl: Element | null,
-    row: Element,
-  ): string {
-    const area = priceAreaEl ?? row;
-
-    const offscreen = area.querySelector(".a-offscreen");
-    if (offscreen?.textContent?.trim()) return offscreen.textContent.trim();
-
-    const whole = area.querySelector(".a-price-whole");
-    if (whole?.textContent?.trim()) return whole.textContent.trim();
-
-    const match = (area.textContent ?? "").match(/[¥￥]\s*[\d,０-９]+/);
-    return match ? match[0].trim() : "";
-  }
-
+  // 注意: この関数は Playwright の page.evaluate に関数参照のまま渡され、
+  // ブラウザ側で toString() された自身のソースのみが再評価される。
+  // tsx(esbuild) はデバッグ用に named function/const を __name(fn, "name")
+  // でラップすることがあり、その __name はブラウザ側に存在しないため
+  // ReferenceError になる。このスコープ内に名前付き関数・名前付き定数への
+  // 関数代入を作らないこと（値の代入は問題ない）。
   const rows = Array.from(
     root.querySelectorAll(`${selectors.itemList} ${selectors.itemRow}`),
   );
@@ -51,6 +41,15 @@ export function extractRawItems(
     const titleEl = row.querySelector(selectors.titleLink);
     const bylineEl = row.querySelector(selectors.byline);
     const priceAreaEl = row.querySelector(selectors.priceArea);
+    const area = priceAreaEl ?? row;
+
+    const offscreenText = area
+      .querySelector(".a-offscreen")
+      ?.textContent?.trim();
+    const wholeText = area.querySelector(".a-price-whole")?.textContent?.trim();
+    const regexMatch = (area.textContent ?? "").match(/[¥￥]\s*[\d,０-９]+/);
+    const currentPriceText =
+      offscreenText || wholeText || (regexMatch ? regexMatch[0].trim() : "");
 
     const pointSpans = Array.from(row.querySelectorAll("span"))
       .map((s) => s.textContent?.trim() ?? "")
@@ -60,7 +59,7 @@ export function extractRawItems(
       title: titleEl?.textContent?.trim() ?? "",
       url: titleEl?.getAttribute("href") ?? "",
       bylineText: bylineEl?.textContent?.trim() ?? "",
-      currentPriceText: extractCurrentPriceText(priceAreaEl, row),
+      currentPriceText,
       pointsText: pointSpans[0] ?? "",
     };
   });
