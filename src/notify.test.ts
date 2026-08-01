@@ -159,13 +159,17 @@ describe("notifyError", () => {
 
   it("REFERENCE_PRICE_EXTRACTION_DEGRADED のフィールドが embed に含まれる", async () => {
     const errors: ValidationError[] = [
-      { type: "REFERENCE_PRICE_EXTRACTION_DEGRADED", totalCount: 8 },
+      {
+        type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
+        foundCount: 1,
+        totalCount: 8,
+      },
     ];
     await notifyError(errors, WEBHOOK);
     const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
     const fields: { name: string; value: string }[] = body.embeds[0].fields;
     const field = fields.find((f) => f.name === "紙版価格の取得率が低下");
-    expect(field?.value).toContain("8件");
+    expect(field?.value).toContain("8件中 1件");
   });
 
   it("embed の color が赤（0xff0000）", async () => {

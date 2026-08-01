@@ -103,7 +103,7 @@ function buildErrorField(error: ValidationError): DiscordEmbedField {
     case "REFERENCE_PRICE_EXTRACTION_DEGRADED":
       return {
         name: "紙版価格の取得率が低下",
-        value: `${error.totalCount}件で紙版の参考価格が1件も取得できませんでした。`,
+        value: `紙版スワッチが見つかった${error.totalCount}件中 ${error.foundCount}件しか参考価格を取得できませんでした。`,
         inline: false,
       };
   }

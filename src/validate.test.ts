@@ -113,24 +113,42 @@ describe("validate", () => {
   });
 
   describe("REFERENCE_PRICE_EXTRACTION_DEGRADED", () => {
-    it("5件以上あり P_base が1件も取れていない → エラーあり", () => {
+    it("紙版スワッチが5件以上あり P_base が1件も取れていない → エラーあり", () => {
       const items = Array.from({ length: 5 }, () =>
-        kindleItem({ P_base: null }),
+        kindleItem({ P_base: null, hasPaperSwatch: true }),
       );
       const errors = validate(items);
       expect(errors).toContainEqual({
         type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
+        foundCount: 0,
         totalCount: 5,
       });
     });
 
-    it("紙版が無い商品が混ざっているだけ(P_base が一部null)ならエラーなし", () => {
+    it("紙版スワッチはあるが P_base 取得率が50%未満 → エラーあり(全滅していなくても検知する)", () => {
       const items = [
-        kindleItem({ P_base: 1000 }),
-        kindleItem({ P_base: null }),
-        kindleItem({ P_base: null }),
-        kindleItem({ P_base: null }),
-        kindleItem({ P_base: null }),
+        kindleItem({ P_base: 1000, hasPaperSwatch: true }),
+        kindleItem({ P_base: null, hasPaperSwatch: true }),
+        kindleItem({ P_base: null, hasPaperSwatch: true }),
+        kindleItem({ P_base: null, hasPaperSwatch: true }),
+        kindleItem({ P_base: null, hasPaperSwatch: true }),
+      ];
+      const errors = validate(items);
+      expect(errors).toContainEqual({
+        type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
+        foundCount: 1,
+        totalCount: 5,
+      });
+    });
+
+    it("紙版スワッチでの P_base 取得率がちょうど50% → エラーなし", () => {
+      const items = [
+        ...Array.from({ length: 3 }, () =>
+          kindleItem({ P_base: 1000, hasPaperSwatch: true }),
+        ),
+        ...Array.from({ length: 3 }, () =>
+          kindleItem({ P_base: null, hasPaperSwatch: true }),
+        ),
       ];
       expect(validate(items)).not.toContainEqual(
         expect.objectContaining({
@@ -139,9 +157,24 @@ describe("validate", () => {
       );
     });
 
-    it("件数が閾値未満なら P_base 全滅でもエラーにしない", () => {
+    it("紙版が無い商品(hasPaperSwatch: false)は分母から除外され、エラーなし", () => {
+      const items = [
+        kindleItem({ P_base: 1000, hasPaperSwatch: true }),
+        kindleItem({ P_base: null, hasPaperSwatch: false }),
+        kindleItem({ P_base: null, hasPaperSwatch: false }),
+        kindleItem({ P_base: null, hasPaperSwatch: false }),
+        kindleItem({ P_base: null, hasPaperSwatch: false }),
+      ];
+      expect(validate(items)).not.toContainEqual(
+        expect.objectContaining({
+          type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
+        }),
+      );
+    });
+
+    it("紙版スワッチのある件数が閾値未満なら P_base 全滅でもエラーにしない", () => {
       const items = Array.from({ length: 4 }, () =>
-        kindleItem({ P_base: null }),
+        kindleItem({ P_base: null, hasPaperSwatch: true }),
       );
       expect(validate(items)).not.toContainEqual(
         expect.objectContaining({
