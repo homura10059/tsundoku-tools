@@ -19,6 +19,7 @@ function makeDeal(n: number): Deal {
     P_base: 1000,
     P_kindle: 700,
     Pt: 0,
+    hasPaperSwatch: true,
     discountRate: 0.3,
     pointRate: 0,
   };
@@ -126,6 +127,7 @@ describe("notifyError", () => {
             P_base: null,
             P_kindle: null,
             Pt: 0,
+            hasPaperSwatch: false,
           },
         ],
       },

@@ -160,6 +160,7 @@ describe("parseRawItem", () => {
       P_base: null,
       P_kindle: 1000,
       Pt: 80,
+      hasPaperSwatch: false,
     });
   });
 

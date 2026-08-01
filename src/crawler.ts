@@ -65,22 +65,32 @@ export function extractRawItems(
   });
 }
 
-export function extractReferencePriceText(root: ParentNode = document): string {
+export interface ReferencePriceExtraction {
+  // 紙版など Kindle 以外のフォーマットスロットが詳細ページに存在したか。
+  // false は「紙版が存在しない商品（仕様通り）」、true なのに priceText が
+  // 空なのは「スロットはあるのに価格が取れなかった（抽出失敗）」を表す。
+  hasPaperSwatch: boolean;
+  priceText: string;
+}
+
+export function extractReferencePrice(
+  root: ParentNode = document,
+): ReferencePriceExtraction {
   const swatches = Array.from(
     root.querySelectorAll('[id^="tmm-grid-swatch-"]'),
   );
   const nonKindle = swatches.find((el) => el.id !== "tmm-grid-swatch-KINDLE");
-  if (!nonKindle) return "";
+  if (!nonKindle) return { hasPaperSwatch: false, priceText: "" };
 
   const priceEl = nonKindle.querySelector(".slot-price span[aria-label]");
   const label = priceEl?.getAttribute("aria-label")?.trim();
-  if (label) return label;
+  if (label) return { hasPaperSwatch: true, priceText: label };
 
   const text = priceEl?.textContent?.trim();
-  if (text) return text;
+  if (text) return { hasPaperSwatch: true, priceText: text };
 
   const match = (nonKindle.textContent ?? "").match(/[¥￥]\s*[\d,０-９]+/);
-  return match ? match[0].trim() : "";
+  return { hasPaperSwatch: true, priceText: match ? match[0].trim() : "" };
 }
 
 export function parseYenAmount(text: string): number | null {
@@ -145,20 +155,20 @@ export async function scrollToLoadAll(
 async function fetchReferencePrice(
   page: Page,
   url: string,
-): Promise<number | null> {
+): Promise<{ P_base: number | null; hasPaperSwatch: boolean }> {
   try {
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await jitter();
-    const text = await page.evaluate<string, undefined>(
-      extractReferencePriceText,
-      undefined,
-    );
-    const P_base = parseYenAmount(text);
-    debug(`[detail] P_base=${P_base}`);
-    return P_base;
+    const { hasPaperSwatch, priceText } = await page.evaluate<
+      ReferencePriceExtraction,
+      undefined
+    >(extractReferencePrice, undefined);
+    const P_base = parseYenAmount(priceText);
+    debug(`[detail] P_base=${P_base} hasPaperSwatch=${hasPaperSwatch}`);
+    return { P_base, hasPaperSwatch };
   } catch (err) {
     console.error("[crawler] Failed to fetch reference price:", err);
-    return null;
+    return { P_base: null, hasPaperSwatch: false };
   }
 }
 
@@ -185,8 +195,11 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
 
     const items: WishlistItem[] = [];
     for (const item of kindleItems) {
-      const P_base = await fetchReferencePrice(page, item.url);
-      items.push({ ...item, P_base });
+      const { P_base, hasPaperSwatch } = await fetchReferencePrice(
+        page,
+        item.url,
+      );
+      items.push({ ...item, P_base, hasPaperSwatch });
     }
 
     return items;
@@ -218,5 +231,6 @@ export function parseRawItem(raw: RawItem): WishlistItem {
     P_base: null,
     P_kindle,
     Pt,
+    hasPaperSwatch: false,
   };
 }

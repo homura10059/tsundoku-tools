@@ -9,6 +9,7 @@ const kindleItem = (overrides: Partial<WishlistItem> = {}): WishlistItem => ({
   P_base: 1000,
   P_kindle: 800,
   Pt: 0,
+  hasPaperSwatch: true,
   ...overrides,
 });
 

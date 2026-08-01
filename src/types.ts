@@ -7,6 +7,10 @@ export interface WishlistItem {
   P_base: number | null;
   P_kindle: number | null;
   Pt: number;
+  // 詳細ページに紙版など Kindle 以外のスロットが存在したか。
+  // P_base === null のとき、これが false なら「紙版が存在しない（正常）」、
+  // true なら「スロットはあったのに価格抽出に失敗した（異常）」を意味する。
+  hasPaperSwatch: boolean;
 }
 
 export interface Deal extends Omit<WishlistItem, "P_base" | "P_kindle"> {
