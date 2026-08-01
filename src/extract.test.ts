@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   SELECTORS,
   extractRawItems,
-  extractReferencePriceText,
+  extractReferencePrice,
 } from "./crawler.js";
 
 function loadDom(fixtureName: string): Document {
@@ -44,14 +44,35 @@ describe("extractRawItems (実サイトのマークアップを再現したフ�
   });
 });
 
-describe("extractReferencePriceText (詳細ページのフォーマットスイッチャー)", () => {
+describe("extractReferencePrice (詳細ページのフォーマットスイッチャー)", () => {
   it("KINDLE以外のスロット(紙版)の価格を全角円記号のまま取得する", () => {
     const document = loadDom("detail-page.html");
-    expect(extractReferencePriceText(document)).toBe("￥825");
+    expect(extractReferencePrice(document)).toEqual({
+      hasPaperSwatch: true,
+      priceText: "￥825",
+    });
   });
 
-  it("紙版スロットが存在しない場合は空文字列を返す", () => {
+  it("紙版スロットが存在しない場合は hasPaperSwatch: false を返す(仕様通り判定対象外)", () => {
     const document = loadDom("detail-page-kindle-only.html");
-    expect(extractReferencePriceText(document)).toBe("");
+    expect(extractReferencePrice(document)).toEqual({
+      hasPaperSwatch: false,
+      priceText: "",
+    });
+  });
+
+  it("紙版スロットは存在するが価格が取れない場合は hasPaperSwatch: true / priceText: '' を返す(抽出失敗として区別する)", () => {
+    const document = new JSDOM(
+      `<div id="tmmSwatches">
+        <div id="tmm-grid-swatch-KINDLE">Kindle版</div>
+        <div id="tmm-grid-swatch-OTHER">
+          <span class="slot-title">コミック (紙)</span>
+        </div>
+      </div>`,
+    ).window.document;
+    expect(extractReferencePrice(document)).toEqual({
+      hasPaperSwatch: true,
+      priceText: "",
+    });
   });
 });

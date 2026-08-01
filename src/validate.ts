@@ -5,8 +5,13 @@ import type { WishlistItem } from "./types.js";
 // 全滅した実績があるため）。
 const KINDLE_PRICE_MIN_RATE = 0.5;
 
-// P_base は紙版が存在しない商品では null が正常なので、率での判定はしない。
-// 「1件も取れていない」ことだけを、統計的に意味のある件数がある場合に検知する。
+// P_base は紙版が存在しない商品では null が正常なので、全 item を母数にした
+// 率での判定はしない。詳細ページに紙版スワッチ(hasPaperSwatch)が見つかった
+// item だけを母数とし、そのうち P_base が取れた割合を見ることで
+// 「紙版が無い（正常）」と「抽出に失敗した（異常）」を区別する。
+const REFERENCE_PRICE_MIN_RATE = 0.5;
+
+// 統計的に意味のある件数（紙版スワッチが見つかった item 数）がある場合のみ検知する。
 const REFERENCE_PRICE_MIN_ITEMS_FOR_CHECK = 5;
 
 export type ValidationError =
@@ -17,7 +22,11 @@ export type ValidationError =
       foundCount: number;
       totalCount: number;
     }
-  | { type: "REFERENCE_PRICE_EXTRACTION_DEGRADED"; totalCount: number };
+  | {
+      type: "REFERENCE_PRICE_EXTRACTION_DEGRADED";
+      foundCount: number;
+      totalCount: number;
+    };
 
 export function validate(items: WishlistItem[]): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -47,14 +56,16 @@ export function validate(items: WishlistItem[]): ValidationError[] {
       });
     }
 
-    if (items.length >= REFERENCE_PRICE_MIN_ITEMS_FOR_CHECK) {
-      const baseFoundCount = items.filter(
+    const paperSwatchItems = items.filter((item) => item.hasPaperSwatch);
+    if (paperSwatchItems.length >= REFERENCE_PRICE_MIN_ITEMS_FOR_CHECK) {
+      const baseFoundCount = paperSwatchItems.filter(
         (item) => item.P_base !== null,
       ).length;
-      if (baseFoundCount === 0) {
+      if (baseFoundCount / paperSwatchItems.length < REFERENCE_PRICE_MIN_RATE) {
         errors.push({
           type: "REFERENCE_PRICE_EXTRACTION_DEGRADED",
-          totalCount: items.length,
+          foundCount: baseFoundCount,
+          totalCount: paperSwatchItems.length,
         });
       }
     }

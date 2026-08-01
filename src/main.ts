@@ -8,8 +8,13 @@ const items = await crawl(config.wishlistUrl);
 
 const kindleFoundCount = items.filter((item) => item.P_kindle !== null).length;
 const baseFoundCount = items.filter((item) => item.P_base !== null).length;
+const noPaperEditionCount = items.filter((item) => !item.hasPaperSwatch).length;
+const baseExtractionFailedCount = items.filter(
+  (item) => item.hasPaperSwatch && item.P_base === null,
+).length;
 console.log(
-  `取得: ${items.length}件中 Kindle価格 ${kindleFoundCount}件 / 紙版参考価格 ${baseFoundCount}件`,
+  `取得: ${items.length}件中 Kindle価格 ${kindleFoundCount}件 / ` +
+    `紙版参考価格 ${baseFoundCount}件（紙版なし ${noPaperEditionCount}件 / 抽出失敗 ${baseExtractionFailedCount}件）`,
 );
 
 const errors = validate(items);

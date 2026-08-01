@@ -52,6 +52,12 @@ Kindle 以外の商品・価格欠損データ（`null`）は判定対象外と�
   のうち `tmm-grid-swatch-KINDLE` でないもの）を探し、その `.slot-price`
   内の価格を `P_base` として取得する。紙版が存在しない商品では取得できず
   `P_base: null` のまま（判定対象外）となるが、これは仕様通りの挙動。
+- 「紙版が存在しない（正常）」と「紙版スロットはあるのに価格抽出に失敗した
+  （異常）」を区別するため、`WishlistItem.hasPaperSwatch` に詳細ページで
+  非 Kindle スロットが見つかったかどうかを保持する。`validate()` は
+  `hasPaperSwatch: true` の item だけを母数にして `P_base` の取得率を見る
+  ことで、紙版なし商品を誤検知せずに抽出ロジックの劣化を検知する
+  （`REFERENCE_PRICE_EXTRACTION_DEGRADED`）。
 - 詳細ページへの遷移は Kindle アイテム数だけ発生するため、**一覧ページのみ
   の場合より実行時間が数分単位で増加する**（既存の `jitter()` を各遷移間
   に挟むため、件数 × 1〜3秒程度）。
