@@ -6,6 +6,12 @@ import { validate } from "./validate.js";
 
 const items = await crawl(config.wishlistUrl);
 
+const kindleFoundCount = items.filter((item) => item.P_kindle !== null).length;
+const baseFoundCount = items.filter((item) => item.P_base !== null).length;
+console.log(
+  `取得: ${items.length}件中 Kindle価格 ${kindleFoundCount}件 / 紙版参考価格 ${baseFoundCount}件`,
+);
+
 const errors = validate(items);
 if (errors.length > 0) {
   console.error(

@@ -7,7 +7,7 @@ import { debug } from "./util/logger.js";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-const SELECTORS = {
+export const SELECTORS = {
   itemList: "#g-items",
   itemRow: "li[data-id]",
   titleLink: "a[id^='itemName_']",
@@ -19,24 +19,77 @@ export interface RawItem {
   title: string;
   url: string;
   bylineText: string;
-  priceTexts: string[];
+  currentPriceText: string;
   pointsText: string;
 }
 
-export function parsePrice(priceTexts: string[]): {
-  P_base: number | null;
-  P_kindle: number | null;
-} {
-  const prices = priceTexts
-    .map((t) => Number.parseInt(t.replace(/[¥,]/g, ""), 10))
-    .filter((n) => !Number.isNaN(n));
+export function extractRawItems(
+  selectors: typeof SELECTORS,
+  root: ParentNode = document,
+): RawItem[] {
+  // 注意: この関数は Playwright の page.evaluate に関数参照のまま渡され、
+  // ブラウザ側で toString() された自身のソースのみが再評価される。
+  // tsx(esbuild) はデバッグ用に named function/const を __name(fn, "name")
+  // でラップすることがあり、その __name はブラウザ側に存在しないため
+  // ReferenceError になる。このスコープ内に名前付き関数・名前付き定数への
+  // 関数代入を作らないこと（値の代入は問題ない）。
+  const rows = Array.from(
+    root.querySelectorAll(`${selectors.itemList} ${selectors.itemRow}`),
+  );
 
-  if (prices.length === 0) return { P_base: null, P_kindle: null };
-  if (prices.length === 1) return { P_base: null, P_kindle: prices[0] };
+  return rows.map((row) => {
+    const titleEl = row.querySelector(selectors.titleLink);
+    const bylineEl = row.querySelector(selectors.byline);
+    const priceAreaEl = row.querySelector(selectors.priceArea);
+    const area = priceAreaEl ?? row;
 
-  const max = Math.max(...prices);
-  const min = Math.min(...prices);
-  return { P_base: max, P_kindle: min };
+    const offscreenText = area
+      .querySelector(".a-offscreen")
+      ?.textContent?.trim();
+    const wholeText = area.querySelector(".a-price-whole")?.textContent?.trim();
+    const regexMatch = (area.textContent ?? "").match(/[¥￥]\s*[\d,０-９]+/);
+    const currentPriceText =
+      offscreenText || wholeText || (regexMatch ? regexMatch[0].trim() : "");
+
+    const pointSpans = Array.from(row.querySelectorAll("span"))
+      .map((s) => s.textContent?.trim() ?? "")
+      .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
+
+    return {
+      title: titleEl?.textContent?.trim() ?? "",
+      url: titleEl?.getAttribute("href") ?? "",
+      bylineText: bylineEl?.textContent?.trim() ?? "",
+      currentPriceText,
+      pointsText: pointSpans[0] ?? "",
+    };
+  });
+}
+
+export function extractReferencePriceText(root: ParentNode = document): string {
+  const swatches = Array.from(
+    root.querySelectorAll('[id^="tmm-grid-swatch-"]'),
+  );
+  const nonKindle = swatches.find((el) => el.id !== "tmm-grid-swatch-KINDLE");
+  if (!nonKindle) return "";
+
+  const priceEl = nonKindle.querySelector(".slot-price span[aria-label]");
+  const label = priceEl?.getAttribute("aria-label")?.trim();
+  if (label) return label;
+
+  const text = priceEl?.textContent?.trim();
+  if (text) return text;
+
+  const match = (nonKindle.textContent ?? "").match(/[¥￥]\s*[\d,０-９]+/);
+  return match ? match[0].trim() : "";
+}
+
+export function parseYenAmount(text: string): number | null {
+  if (!text) return null;
+  const normalized = text
+    .replace(/[¥￥,\s]/g, "")
+    .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0));
+  const n = Number.parseInt(normalized, 10);
+  return Number.isNaN(n) ? null : n;
 }
 
 export function parsePoints(pointsText: string): number {
@@ -89,6 +142,26 @@ export async function scrollToLoadAll(
   }
 }
 
+async function fetchReferencePrice(
+  page: Page,
+  url: string,
+): Promise<number | null> {
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await jitter();
+    const text = await page.evaluate<string, undefined>(
+      extractReferencePriceText,
+      undefined,
+    );
+    const P_base = parseYenAmount(text);
+    debug(`[detail] P_base=${P_base}`);
+    return P_base;
+  } catch (err) {
+    console.error("[crawler] Failed to fetch reference price:", err);
+    return null;
+  }
+}
+
 export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -102,45 +175,21 @@ export async function crawl(wishlistUrl: string): Promise<WishlistItem[]> {
     await page.waitForSelector(SELECTORS.itemList, { timeout: 10_000 });
     await scrollToLoadAll(page);
 
-    const rawItems = await page.evaluate<RawItem[], typeof SELECTORS>(
-      (selectors) => {
-        const rows = Array.from(
-          document.querySelectorAll(
-            `${selectors.itemList} ${selectors.itemRow}`,
-          ),
-        );
-        return rows.map((row) => {
-          const titleEl = row.querySelector(selectors.titleLink);
-          const bylineEl = row.querySelector(selectors.byline);
-          const priceAreaEl = row.querySelector(selectors.priceArea);
+    const rawItems = await page.evaluate(extractRawItems, SELECTORS);
 
-          const priceTexts = Array.from(
-            (priceAreaEl ?? row).querySelectorAll("span"),
-          )
-            .map((s) => s.textContent?.trim() ?? "")
-            .filter((t) => /^¥[\d,]+$/.test(t));
-
-          const pointSpans = Array.from(row.querySelectorAll("span"))
-            .map((s) => s.textContent?.trim() ?? "")
-            .filter((t) => t.includes("ポイント") || /\d+pt/.test(t));
-
-          return {
-            title: titleEl?.textContent?.trim() ?? "",
-            url: titleEl?.getAttribute("href") ?? "",
-            bylineText: bylineEl?.textContent?.trim() ?? "",
-            priceTexts,
-            pointsText: pointSpans[0] ?? "",
-          };
-        });
-      },
-      SELECTORS,
-    );
-
-    return rawItems
+    const kindleItems = rawItems
       .filter((raw) => raw.title !== "")
       .map(parseSafeRawItem)
       .filter((item): item is WishlistItem => item !== null)
       .filter((item) => item.format === "Kindle");
+
+    const items: WishlistItem[] = [];
+    for (const item of kindleItems) {
+      const P_base = await fetchReferencePrice(page, item.url);
+      items.push({ ...item, P_base });
+    }
+
+    return items;
   } finally {
     await browser.close();
   }
@@ -159,14 +208,14 @@ export function parseRawItem(raw: RawItem): WishlistItem {
   const url = raw.url.startsWith("/")
     ? `${AMAZON_BASE_URL}${raw.url}`
     : raw.url;
-  const { P_base, P_kindle } = parsePrice(raw.priceTexts);
+  const P_kindle = parseYenAmount(raw.currentPriceText);
   const Pt = parsePoints(raw.pointsText);
-  debug(`${raw.title} | P_base=${P_base} P_kindle=${P_kindle} Pt=${Pt}`);
+  debug(`${raw.title} | P_kindle=${P_kindle} Pt=${Pt}`);
   return {
     title: raw.title,
     url,
     format: parseFormat(raw.bylineText),
-    P_base,
+    P_base: null,
     P_kindle,
     Pt,
   };

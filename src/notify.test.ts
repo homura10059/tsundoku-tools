@@ -110,9 +110,7 @@ describe("notifyError", () => {
   it("送信ボディに embeds が含まれる", async () => {
     const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
     await notifyError(errors, WEBHOOK);
-    const body = JSON.parse(
-      vi.mocked(fetch).mock.calls[0][1]?.body as string,
-    );
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
     expect(body.embeds).toHaveLength(1);
   });
 
@@ -133,9 +131,7 @@ describe("notifyError", () => {
       },
     ];
     await notifyError(errors, WEBHOOK);
-    const body = JSON.parse(
-      vi.mocked(fetch).mock.calls[0][1]?.body as string,
-    );
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
     const fields: { name: string }[] = body.embeds[0].fields;
     expect(fields.some((f) => f.name === "必須フィールド欠損")).toBe(true);
   });
@@ -143,19 +139,37 @@ describe("notifyError", () => {
   it("ALL_PRICES_MISSING のフィールドが embed に含まれる", async () => {
     const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
     await notifyError(errors, WEBHOOK);
-    const body = JSON.parse(
-      vi.mocked(fetch).mock.calls[0][1]?.body as string,
-    );
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
     const fields: { name: string }[] = body.embeds[0].fields;
     expect(fields.some((f) => f.name === "価格情報が全滅")).toBe(true);
+  });
+
+  it("PRICE_EXTRACTION_DEGRADED のフィールドが embed に含まれる", async () => {
+    const errors: ValidationError[] = [
+      { type: "PRICE_EXTRACTION_DEGRADED", foundCount: 2, totalCount: 10 },
+    ];
+    await notifyError(errors, WEBHOOK);
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
+    const fields: { name: string; value: string }[] = body.embeds[0].fields;
+    const field = fields.find((f) => f.name === "Kindle価格の取得率が低下");
+    expect(field?.value).toContain("10件中 2件");
+  });
+
+  it("REFERENCE_PRICE_EXTRACTION_DEGRADED のフィールドが embed に含まれる", async () => {
+    const errors: ValidationError[] = [
+      { type: "REFERENCE_PRICE_EXTRACTION_DEGRADED", totalCount: 8 },
+    ];
+    await notifyError(errors, WEBHOOK);
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
+    const fields: { name: string; value: string }[] = body.embeds[0].fields;
+    const field = fields.find((f) => f.name === "紙版価格の取得率が低下");
+    expect(field?.value).toContain("8件");
   });
 
   it("embed の color が赤（0xff0000）", async () => {
     const errors: ValidationError[] = [{ type: "ALL_PRICES_MISSING" }];
     await notifyError(errors, WEBHOOK);
-    const body = JSON.parse(
-      vi.mocked(fetch).mock.calls[0][1]?.body as string,
-    );
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
     expect(body.embeds[0].color).toBe(0xff0000);
   });
 

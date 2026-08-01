@@ -80,24 +80,40 @@ export async function notify(deals: Deal[], webhookUrl: string): Promise<void> {
   }
 }
 
-export async function notifyError(
-  errors: ValidationError[],
-  webhookUrl: string,
-): Promise<void> {
-  const fields = errors.map((error) => {
-    if (error.type === "MISSING_REQUIRED_FIELDS") {
+function buildErrorField(error: ValidationError): DiscordEmbedField {
+  switch (error.type) {
+    case "MISSING_REQUIRED_FIELDS":
       return {
         name: "必須フィールド欠損",
         value: `${error.items.length}件のアイテムで title または url が空です。`,
         inline: false,
       };
-    }
-    return {
-      name: "価格情報が全滅",
-      value: "全アイテムで価格情報が取得できませんでした。",
-      inline: false,
-    };
-  });
+    case "ALL_PRICES_MISSING":
+      return {
+        name: "価格情報が全滅",
+        value: "全アイテムで価格情報が取得できませんでした。",
+        inline: false,
+      };
+    case "PRICE_EXTRACTION_DEGRADED":
+      return {
+        name: "Kindle価格の取得率が低下",
+        value: `${error.totalCount}件中 ${error.foundCount}件しか Kindle価格を取得できませんでした。`,
+        inline: false,
+      };
+    case "REFERENCE_PRICE_EXTRACTION_DEGRADED":
+      return {
+        name: "紙版価格の取得率が低下",
+        value: `${error.totalCount}件で紙版の参考価格が1件も取得できませんでした。`,
+        inline: false,
+      };
+  }
+}
+
+export async function notifyError(
+  errors: ValidationError[],
+  webhookUrl: string,
+): Promise<void> {
+  const fields = errors.map(buildErrorField);
 
   const embed = {
     title: "ウィッシュリスト監視エラー",
