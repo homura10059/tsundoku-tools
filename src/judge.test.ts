@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { judge } from "./judge.js";
+import { DEFAULT_THRESHOLD, judge } from "./judge.js";
 import type { WishlistItem } from "./types.js";
 
 const kindleItem = (overrides: Partial<WishlistItem> = {}): WishlistItem => ({
@@ -38,5 +38,26 @@ describe("judge", () => {
   it("P_kindleがnullの商品 → 除外", () => {
     const item = kindleItem({ P_kindle: null });
     expect(judge([item])).toHaveLength(0);
+  });
+
+  it("閾値を指定するとその閾値で判定する", () => {
+    // 割引率 30%
+    const item = kindleItem({ P_base: 1000, P_kindle: 700, Pt: 0 });
+    expect(judge([item], 0.3)).toHaveLength(1);
+    expect(judge([item], 0.5)).toHaveLength(0);
+  });
+
+  it("閾値の指定を省略すると DEFAULT_THRESHOLD で判定する", () => {
+    // 割引率 20%（DEFAULT_THRESHOLD ちょうど）
+    const item = kindleItem({ P_base: 1000, P_kindle: 800, Pt: 0 });
+    expect(judge([item])).toEqual(judge([item], DEFAULT_THRESHOLD));
+    expect(judge([item])).toHaveLength(1);
+  });
+
+  it("ポイント還元率にも指定した閾値が使われる", () => {
+    // ポイント還元率 30%
+    const item = kindleItem({ P_base: 1000, P_kindle: 1000, Pt: 300 });
+    expect(judge([item], 0.3)).toHaveLength(1);
+    expect(judge([item], 0.5)).toHaveLength(0);
   });
 });

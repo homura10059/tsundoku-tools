@@ -1,5 +1,16 @@
 export type Format = "Kindle" | "紙" | "その他";
 
+/**
+ * 巡回対象のウィッシュリスト（D1 の wishlists テーブル1行に対応）。
+ * threshold は NULL 解決済みなので、常に有効な数値が入る。
+ */
+export interface Wishlist {
+  id: number;
+  name: string;
+  url: string;
+  threshold: number;
+}
+
 export interface WishlistItem {
   title: string;
   url: string;
