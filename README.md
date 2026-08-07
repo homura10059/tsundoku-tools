@@ -20,7 +20,7 @@ cp .env.example .env
 
 | 変数名 | 内容 |
 |---|---|
-| `WISHLIST_URL` | Amazon 公開ウィッシュリスト URL |
+| `WISHLIST_URLS` | Amazon 公開ウィッシュリスト URL（複数指定はカンマ区切り） |
 | `DISCORD_WEBHOOK_URL` | Discord Webhook URL |
 
 ### 3. 実行
@@ -37,7 +37,7 @@ GitHub リポジトリの **Settings → Secrets and variables → Actions** で
 
 | Secret 名 | 内容 |
 |---|---|
-| `WISHLIST_URL` | Amazon 公開ウィッシュリスト URL |
+| `WISHLIST_URLS` | Amazon 公開ウィッシュリスト URL（複数指定はカンマ区切り） |
 | `DISCORD_WEBHOOK_URL` | Discord Webhook URL |
 
 ### 定期実行

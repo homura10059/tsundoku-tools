@@ -38,7 +38,7 @@ jobs:
       - name: Run monitor
         run: pnpm start
         env:
-          WISHLIST_URL: ${{ secrets.WISHLIST_URL }}
+          WISHLIST_URLS: ${{ secrets.WISHLIST_URLS }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_ERROR_WEBHOOK_URL: ${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
           DEBUG: ${{ inputs.debug && '1' || '' }}
