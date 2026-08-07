@@ -1,0 +1,15 @@
+# このリポジトリは Worker をデプロイしない。
+# wrangler は D1 のスキーマ管理（`wrangler d1 migrations apply`）専用で使う。
+# 実行時のアプリコードは src/d1/client.ts の REST API 経由で D1 を読み書きするため、
+# wrangler には依存しない。
+
+name = "tsundoku-tools"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tsundoku-tools"
+# `pnpm exec wrangler d1 create tsundoku-tools` の出力値に置き換えること。
+# database_id はシークレットではないが、リポジトリが公開の場合は
+# 記載するかどうかを判断すること（記載しない場合は --database-id で渡す）。
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
