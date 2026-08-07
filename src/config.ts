@@ -1,16 +1,9 @@
 import "dotenv/config";
-
-function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    console.error(`Missing required env var: ${key}`);
-    process.exit(1);
-  }
-  return value;
-}
+import { requireEnv, requireEnvList } from "./util/env.js";
 
 export const config = {
-  wishlistUrl: requireEnv("WISHLIST_URL"),
+  // カンマ区切りで複数のウィッシュリストURLを指定できる（例: "url1,url2"）。
+  wishlistUrls: requireEnvList("WISHLIST_URLS"),
   discordWebhookUrl: requireEnv("DISCORD_WEBHOOK_URL"),
   discordErrorWebhookUrl: requireEnv("DISCORD_ERROR_WEBHOOK_URL"),
 };

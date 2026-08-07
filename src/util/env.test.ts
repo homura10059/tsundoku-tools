@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseUrlList, requireEnv, requireEnvList } from "./env.js";
 
 describe("parseUrlList", () => {
@@ -32,30 +32,28 @@ describe("parseUrlList", () => {
 });
 
 describe("requireEnv / requireEnvList", () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-  let exitSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    exitSpy = vi
+  function spyOnExit() {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    return vi
       .spyOn(process, "exit")
       .mockImplementation(() => undefined as never);
-  });
+  }
 
   afterEach(() => {
-    errorSpy.mockRestore();
-    exitSpy.mockRestore();
+    vi.restoreAllMocks();
     // biome-ignore lint/performance/noDelete: process.env requires delete to truly unset a key
     delete process.env.TEST_ENV_VAR;
   });
 
   it("requireEnv: 値が設定されていればそのまま返す", () => {
+    const exitSpy = spyOnExit();
     process.env.TEST_ENV_VAR = "value";
     expect(requireEnv("TEST_ENV_VAR")).toBe("value");
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
   it("requireEnv: 未設定なら process.exit(1) する", () => {
+    const exitSpy = spyOnExit();
     // biome-ignore lint/performance/noDelete: process.env requires delete to truly unset a key
     delete process.env.TEST_ENV_VAR;
     requireEnv("TEST_ENV_VAR");
@@ -63,6 +61,7 @@ describe("requireEnv / requireEnvList", () => {
   });
 
   it("requireEnvList: カンマ区切りを配列にして返す", () => {
+    const exitSpy = spyOnExit();
     process.env.TEST_ENV_VAR = "https://example.com/a,https://example.com/b";
     expect(requireEnvList("TEST_ENV_VAR")).toEqual([
       "https://example.com/a",
@@ -72,6 +71,7 @@ describe("requireEnv / requireEnvList", () => {
   });
 
   it("requireEnvList: 空要素しかない場合は process.exit(1) する", () => {
+    const exitSpy = spyOnExit();
     process.env.TEST_ENV_VAR = " , ,";
     requireEnvList("TEST_ENV_VAR");
     expect(exitSpy).toHaveBeenCalledWith(1);

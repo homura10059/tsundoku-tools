@@ -2,9 +2,15 @@ import { config } from "./config.js";
 import { crawl } from "./crawler.js";
 import { judge } from "./judge.js";
 import { notify, notifyError } from "./notify.js";
+import type { WishlistItem } from "./types.js";
 import { validate } from "./validate.js";
 
-const items = await crawl(config.wishlistUrl);
+console.log(`監視対象ウィッシュリスト: ${config.wishlistUrls.length}件`);
+
+const items: WishlistItem[] = [];
+for (const wishlistUrl of config.wishlistUrls) {
+  items.push(...(await crawl(wishlistUrl)));
+}
 
 const kindleFoundCount = items.filter((item) => item.P_kindle !== null).length;
 const baseFoundCount = items.filter((item) => item.P_base !== null).length;
