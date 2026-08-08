@@ -89,6 +89,44 @@ describe("createD1Client", () => {
     await expect(client.query("SELECT 1")).rejects.toThrow(/403/);
   });
 
+  it("HTTP エラー時、JSON ボディの errors 詳細を例外メッセージに含める", async () => {
+    // Cloudflare API は 400/403 等でも success:false の JSON ボディを返すことが多く、
+    // そこに具体的な原因（不正な database_id 等）が書かれている。
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          result: [],
+          success: false,
+          errors: [
+            {
+              code: 7003,
+              message:
+                "Could not route to /accounts/acct-123/d1/database/db-456/query, perhaps your object identifier is invalid",
+            },
+          ],
+          messages: [],
+        },
+        400,
+      ),
+    );
+    const client = createD1Client(credentials, fetchImpl);
+
+    await expect(client.query("SELECT 1")).rejects.toThrow(
+      /object identifier is invalid/,
+    );
+  });
+
+  it("HTTP エラー時、JSON でないボディは本文の一部を例外メッセージに含める", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("<html>Bad Request</html>", { status: 400 }),
+      );
+    const client = createD1Client(credentials, fetchImpl);
+
+    await expect(client.query("SELECT 1")).rejects.toThrow(/Bad Request/);
+  });
+
   it("API トークンを例外メッセージに含めない", async () => {
     const fetchImpl = vi
       .fn()
