@@ -1,11 +1,15 @@
-import type { Deal } from "./types.js";
+import type { Deal, Wishlist } from "./types.js";
 import { jitter } from "./util/jitter.js";
 import type { ValidationError } from "./validate.js";
 
 // ステートレス運用: 通知履歴は保持しない。セール継続中は毎回同じ商品が通知される。
+// D1 にスナップショットを保存するようになっても、この方針は変えない
+// （保存はあくまで観測目的で、通知の判断には使わない）。
 
-const THRESHOLD = 0.2;
 const CHUNK_SIZE = 5;
+
+/** 通知に必要なリスト情報。閾値は表示するフィールドの選別にも使う。 */
+type NotifyContext = Pick<Wishlist, "name" | "threshold">;
 
 function formatCurrency(amount: number): string {
   return `¥${amount.toLocaleString("ja-JP")}`;
@@ -28,12 +32,12 @@ interface DiscordEmbed {
   fields: DiscordEmbedField[];
 }
 
-function buildEmbed(deal: Deal): DiscordEmbed {
+function buildEmbed(deal: Deal, threshold: number): DiscordEmbed {
   const fields: DiscordEmbedField[] = [
     { name: "Kindle価格", value: formatCurrency(deal.P_kindle), inline: true },
   ];
 
-  if (deal.discountRate >= THRESHOLD) {
+  if (deal.discountRate >= threshold) {
     fields.push({
       name: "割引率",
       value: formatRate(deal.discountRate),
@@ -41,7 +45,7 @@ function buildEmbed(deal: Deal): DiscordEmbed {
     });
   }
 
-  if (deal.pointRate >= THRESHOLD) {
+  if (deal.pointRate >= threshold) {
     fields.push({
       name: "ポイント還元率",
       value: formatRate(deal.pointRate),
@@ -60,14 +64,30 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
-export async function notify(deals: Deal[], webhookUrl: string): Promise<void> {
+/**
+ * ヒットした商品を Discord へ送信する。
+ *
+ * 複数リストを巡回するため、どのリスト由来のヒットかが分かるように
+ * リスト名を content に載せ、リストごとに分けて送信する。
+ */
+export async function notify(
+  deals: Deal[],
+  webhookUrl: string,
+  wishlist: NotifyContext,
+): Promise<void> {
   const chunks = chunk(deals, CHUNK_SIZE);
   for (let i = 0; i < chunks.length; i++) {
-    const embeds = chunks[i].map(buildEmbed);
+    const embeds = chunks[i].map((deal) =>
+      buildEmbed(deal, wishlist.threshold),
+    );
+    const progress = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds }),
+      body: JSON.stringify({
+        content: `**[${wishlist.name}]**${progress}`,
+        embeds,
+      }),
     });
 
     if (!res.ok) {
@@ -112,11 +132,12 @@ function buildErrorField(error: ValidationError): DiscordEmbedField {
 export async function notifyError(
   errors: ValidationError[],
   webhookUrl: string,
+  wishlistName: string,
 ): Promise<void> {
   const fields = errors.map(buildErrorField);
 
   const embed = {
-    title: "ウィッシュリスト監視エラー",
+    title: `ウィッシュリスト監視エラー: ${wishlistName}`,
     color: 0xff0000,
     fields,
   };

@@ -38,7 +38,10 @@ jobs:
       - name: Run monitor
         run: pnpm start
         env:
-          WISHLIST_URL: ${{ secrets.WISHLIST_URL }}
+          # 監視対象のウィッシュリストは D1 の wishlists テーブルから読む。
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_ERROR_WEBHOOK_URL: ${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
           DEBUG: ${{ inputs.debug && '1' || '' }}
