@@ -11,5 +11,5 @@ database_name = "tsundoku-tools"
 # `pnpm exec wrangler d1 create tsundoku-tools` の出力値に置き換えること。
 # database_id はシークレットではないが、リポジトリが公開の場合は
 # 記載するかどうかを判断すること（記載しない場合は --database-id で渡す）。
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "c2f897e1-7331-4660-8ca4-740da8ce037b"
 migrations_dir = "migrations"
