@@ -50,20 +50,27 @@ export function createD1Client(
         body: JSON.stringify({ sql, params }),
       });
 
-      if (!res.ok) {
-        throw new Error(`D1 リクエスト失敗: ${res.status} ${res.statusText}`);
+      // Cloudflare API は HTTP エラー（400/403 等）でも success:false の JSON
+      // ボディに具体的な原因（不正な database_id 等）を返すことが多いので、
+      // ステータスに関わらず本文を読んで例外メッセージに含める。
+      const text = await res.text();
+      let body: D1Response | undefined;
+      try {
+        body = JSON.parse(text) as D1Response;
+      } catch {
+        // JSON でない場合（HTML エラーページ等）はそのまま text を使う。
       }
 
-      const body = (await res.json()) as D1Response;
-
-      if (body.success === false) {
+      if (!res.ok || body?.success === false) {
         const detail =
-          body.errors?.map((e) => e.message ?? String(e.code)).join(", ") ??
-          "不明なエラー";
-        throw new Error(`D1 クエリ失敗: ${detail}`);
+          body?.errors?.map((e) => e.message ?? String(e.code)).join(", ") ||
+          text.slice(0, 300);
+        throw new Error(
+          `D1 リクエスト失敗: ${res.status} ${res.statusText}${detail ? ` - ${detail}` : ""}`,
+        );
       }
 
-      return (body.result?.[0]?.results ?? []) as T[];
+      return (body?.result?.[0]?.results ?? []) as T[];
     },
   };
 }
