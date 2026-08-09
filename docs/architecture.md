@@ -10,11 +10,15 @@ src/
   crawler.ts            Playwright によるクローリング
   validate.ts           抽出結果の健全性チェック
   notify.ts             Discord Embed 通知送信
-  main.ts               エントリーポイント（D1→crawl→validate→judge→notify）
+  asin.ts               商品スナップショットのキー（ASIN）抽出
+  main.ts               エントリーポイント（D1→crawl→validate→judge→notify→スナップショット保存）
   d1/client.ts          Cloudflare D1 REST API クライアント
   repository/
     wishlists.ts        巡回対象リストの取得
-migrations/             D1 スキーマ（wrangler で適用）
+    snapshots.ts        巡回結果スナップショットの記録・削除
+migrations/              D1 スキーマ（wrangler で適用）
+  0001_create_wishlists.sql       wishlists テーブル
+  0002_create_snapshots.sql       runs / item_snapshots / run_validation_errors テーブル
 fixtures/
   wishlist.json         静的サンプルデータ（スクレイピング実装前の代替）
 ```
@@ -63,6 +67,44 @@ D1 は平文で保持されるため、引き続き環境変数から読む。
 `main.ts` は有効なリストを順に巡回し、**リストごとに**判定と通知を行う。
 1つのリストがバリデーションに失敗しても他のリストの処理は継続し、
 終了コードにだけ反映する（要件 4.2 のエラーハンドリング方針）。
+
+### スナップショット（観測ログ、増分8〜）
+
+毎回の巡回結果を `runs` / `item_snapshots` / `run_validation_errors`
+（`migrations/0002_create_snapshots.sql`）にフル保存する。**通知の判断には
+使わない**（要件 2.4 のステートレス方針を維持）。目的は価格推移の分析と、
+`validate()` が抽出率の劣化を検知したときの遡及調査の2つに限る。
+
+- **保存粒度・保持期間**: 毎回全件フル保存。180日を超えた `runs` とその
+  配下は、実行の末尾で `pruneOldRuns()`（`src/repository/snapshots.ts`）が
+  削除する。スキーマ上は `ON DELETE CASCADE` を宣言しているが、D1 で
+  外部キー制約が有効化されているか確証が持てないため、CASCADE には頼らず
+  `item_snapshots` → `run_validation_errors` → `runs` の順に明示的に
+  DELETE する。
+- **商品キー（`item_key`）**: `src/asin.ts` の `extractItemKey()` が
+  URL から ASIN（10桁、大文字化）を抽出する。抽出できない場合はクエリ
+  文字列を落とした URL をキーにする。run をまたいで同じ商品を串刺しに
+  引けるようにするため。
+- **`run.id` の取得方法**: `D1Client.query` は `meta.last_row_id` を
+  返さず、かつ別クエリで `last_insert_rowid()` を発行してもコネクション
+  状態に依存し信頼できないため、`INSERT ... RETURNING id` で同一クエリの
+  レスポンスから id を得ている（ローカル D1 で動作確認済み）。
+- **バッチ INSERT のサイズ**: `item_snapshots` は9列あり、Cloudflare の
+  1クエリあたりのバウンドパラメータ上限をこの環境（`developers.cloudflare.com`
+  がネットワークポリシーでブロックされている）からは実測できなかった。
+  決め打ちを避け、9列 × 10行 = 90パラメータという安全側の値
+  （`ITEM_SNAPSHOT_BATCH_SIZE`）を採用している。本番の D1（`--remote`）で
+  実際の上限を確認できたら見直すこと。
+- **書き込み失敗時の扱い**: `saveRunSnapshot()` / `pruneOldRuns()` の失敗は
+  `main.ts` 側で try/catch し、警告ログのみで通知フロー（`notify`/
+  `notifyError`）と終了コードには影響させない。D1 の**読み取り**失敗
+  （`fetchEnabledWishlists`）は設定漏れ・接続不能を示すため、従来通り
+  致命的エラーとして扱う（この違いを混同しないこと）。
+- **judge の結果は保存しない**: `item_snapshots` には `P_base` /
+  `P_kindle` / `Pt` を保存し、`discountRate` 等の判定結果（`Deal` 型）は
+  保存しない。後から `judge()` で再計算できるため。ただし `runs.deal_count`
+  はヒット件数の集計値としてのみ保存する（バリデーション失敗時は
+  `judge()` を呼ばないため `deal_count = 0`）。
 
 ## 判定ロジック詳細
 
