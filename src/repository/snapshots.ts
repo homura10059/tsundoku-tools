@@ -3,11 +3,13 @@ import type { D1Client } from "../d1/client.js";
 import type { WishlistItem } from "../types.js";
 import type { ValidationError } from "../validate.js";
 
-// item_snapshots は9列。Cloudflare D1 の1クエリあたりのバウンドパラメータ
-// 上限をこの環境からは実測できなかった（developers.cloudflare.com への
+// item_snapshots は9列。Cloudflare の1クエリあたりのバウンドパラメータ
+// 上限をこの開発環境からは実測できなかった（developers.cloudflare.com への
 // アクセスがネットワークポリシーでブロックされている）ため、決め打ちせず
-// 安全側の値を採用している。9列 × 10行 = 90パラメータ。
-// 本番の D1（--remote）で実際の上限を確認できたら見直すこと。
+// 安全側の値（9列 × 10行 = 90パラメータ）を採用した。
+// 本番リモートD1（monitor.yml run #61, 2026-08-09）で38件/24件のリストに
+// 対してバッチINSERTが実際に成功することを確認済み。件数がさらに増えても
+// バッチが増えるだけで安全に動くため、この値のままで問題ない。
 export const ITEM_SNAPSHOT_BATCH_SIZE = 10;
 
 // 観測ログの保持期間。pruneOldRuns() の既定値として使う。
