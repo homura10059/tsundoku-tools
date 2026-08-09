@@ -88,13 +88,15 @@ D1 は平文で保持されるため、引き続き環境変数から読む。
 - **`run.id` の取得方法**: `D1Client.query` は `meta.last_row_id` を
   返さず、かつ別クエリで `last_insert_rowid()` を発行してもコネクション
   状態に依存し信頼できないため、`INSERT ... RETURNING id` で同一クエリの
-  レスポンスから id を得ている（ローカル D1 で動作確認済み）。
+  レスポンスから id を得ている。ローカル D1 に加え、本番リモート D1
+  （`monitor.yml` run #61, 2026-08-09）でも動作を確認済み。
 - **バッチ INSERT のサイズ**: `item_snapshots` は9列あり、Cloudflare の
-  1クエリあたりのバウンドパラメータ上限をこの環境（`developers.cloudflare.com`
-  がネットワークポリシーでブロックされている）からは実測できなかった。
-  決め打ちを避け、9列 × 10行 = 90パラメータという安全側の値
-  （`ITEM_SNAPSHOT_BATCH_SIZE`）を採用している。本番の D1（`--remote`）で
-  実際の上限を確認できたら見直すこと。
+  1クエリあたりのバウンドパラメータ上限を開発時点では実測できなかった
+  （`developers.cloudflare.com` がこの開発環境のネットワークポリシーで
+  ブロックされていたため）。決め打ちを避け、9列 × 10行 = 90パラメータ
+  という安全側の値（`ITEM_SNAPSHOT_BATCH_SIZE`）を採用した。本番リモート
+  D1（`monitor.yml` run #61, 2026-08-09）で38件・24件のリストに対して
+  バッチINSERTが実際に成功することを確認済み。
 - **書き込み失敗時の扱い**: `saveRunSnapshot()` / `pruneOldRuns()` の失敗は
   `main.ts` 側で try/catch し、警告ログのみで通知フロー（`notify`/
   `notifyError`）と終了コードには影響させない。D1 の**読み取り**失敗
