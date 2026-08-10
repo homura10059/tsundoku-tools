@@ -7,15 +7,16 @@ src/
   config.ts             環境変数ロード・バリデーション（dotenv）
   types.ts              Wishlist / WishlistItem / Deal 型定義
   judge.ts              判定純粋関数（判定ロジックの中核）
+  diff.ts               前回スナップショットとの差分で通知対象を絞る純粋関数
   crawler.ts            Playwright によるクローリング
   validate.ts           抽出結果の健全性チェック
   notify.ts             Discord Embed 通知送信
   asin.ts               商品スナップショットのキー（ASIN）抽出
-  main.ts               エントリーポイント（D1→crawl→validate→judge→notify→スナップショット保存）
+  main.ts               エントリーポイント（D1→crawl→validate→judge→差分抽出→スナップショット保存→notify）
   d1/client.ts          Cloudflare D1 REST API クライアント
   repository/
     wishlists.ts        巡回対象リストの取得
-    snapshots.ts        巡回結果スナップショットの記録・削除
+    snapshots.ts        巡回結果スナップショットの記録・読み出し・削除
 migrations/              D1 スキーマ（wrangler で適用）
   0001_create_wishlists.sql       wishlists テーブル
   0002_create_snapshots.sql       runs / item_snapshots / run_validation_errors テーブル
@@ -68,12 +69,15 @@ D1 は平文で保持されるため、引き続き環境変数から読む。
 1つのリストがバリデーションに失敗しても他のリストの処理は継続し、
 終了コードにだけ反映する（要件 4.2 のエラーハンドリング方針）。
 
-### スナップショット（観測ログ、増分8〜）
+### スナップショット（増分8〜）
 
 毎回の巡回結果を `runs` / `item_snapshots` / `run_validation_errors`
-（`migrations/0002_create_snapshots.sql`）にフル保存する。**通知の判断には
-使わない**（要件 2.4 のステートレス方針を維持）。目的は価格推移の分析と、
-`validate()` が抽出率の劣化を検知したときの遡及調査の2つに限る。
+（`migrations/0002_create_snapshots.sql`）にフル保存する。用途は3つ:
+価格推移の分析、`validate()` が抽出率の劣化を検知したときの遡及調査、
+そして**増分9で追加した差分通知の比較対象**（要件 2.4）。
+
+増分8の時点では「観測目的のみ、通知の判断には使わない」という方針だったが、
+増分9でこれを転換した。詳細は後述の「差分通知」を参照。
 
 - **保存粒度・保持期間**: 毎回全件フル保存。180日を超えた `runs` とその
   配下は、実行の末尾で `pruneOldRuns()`（`src/repository/snapshots.ts`）が
@@ -106,7 +110,41 @@ D1 は平文で保持されるため、引き続き環境変数から読む。
   `P_kindle` / `Pt` を保存し、`discountRate` 等の判定結果（`Deal` 型）は
   保存しない。後から `judge()` で再計算できるため。ただし `runs.deal_count`
   はヒット件数の集計値としてのみ保存する（バリデーション失敗時は
-  `judge()` を呼ばないため `deal_count = 0`）。
+  `judge()` を呼ばないため `deal_count = 0`）。差分通知の導入後も
+  `deal_count` の意味は変えない（`judge()` のヒット件数であって、実際に
+  通知した件数ではない。通知件数はログにのみ出す）。
+
+### 差分通知（増分9〜）
+
+紙版が絶版になると参考価格（`P_base`）がマーケットプレイスのプレミア価格に
+なり、価格が1円も動いていないのに `judge()` が毎日ヒットし続けて同じ商品が
+通知され続ける。これを止めるため、`judge()` の結果をそのまま `notify()` に
+渡さず、`selectChangedDeals()`（`src/diff.ts`）で前回の巡回から変化のあった
+ものだけに絞る。
+
+- **比較対象**: `fetchLatestRunItems()`（`src/repository/snapshots.ts`）が
+  そのリストの**直前の run** の `item_snapshots` を `WishlistItem` に復元し、
+  `item_key` をキーにした `Map` で返す。`snapshots.ts` に SELECT を置いた
+  のはこれが初めて。
+- **「前回の通知対象」の求め方**: 当時の判定結果は保存していないので、
+  前回スナップショットに**現在の**閾値で `judge()` を再適用して求める。
+  `judge()` と `extractItemKey()` をそのまま再利用しており、`diff.ts` は
+  独自の判定ロジックを持たない。
+- **通知する条件**: (1) 前回スナップショットに存在しない商品、(2) 前回は
+  非対象で今回対象になった商品、(3) 前回も対象で `P_kindle` が下がった
+  または `Pt` が増えた商品。絶版のプレミア価格は (3) に該当しないので沈黙する。
+- **処理順序**: 前回スナップショットの取得は `saveRunSnapshot()` より**前**に
+  行う。後に置くと今回の run が「直前の run」になり、自分自身と比較して
+  常に0件になる。
+- **読み取り失敗時の扱い**: `fetchLatestRunItems()` が失敗した場合は抑制せず
+  全件通知し、警告ログのみ出して exit code は変えない。差分抑制は通知の質を
+  上げる補助機能であり、通知漏れより重複通知の方が害が小さいため。D1 の
+  読み取り失敗を致命的に扱う `fetchEnabledWishlists()` とは**扱いが違う**
+  ので混同しないこと。
+- **既知の制約**: `runs` に当時の閾値を保存していないため、
+  `wishlists.threshold` を引き下げた瞬間に対象化した商品は、次に価格が
+  動くまで通知されない。解消するには `runs.threshold` 列の追加
+  （マイグレーション）が必要なので、必要になった時点で判断する。
 
 ## 判定ロジック詳細
 
