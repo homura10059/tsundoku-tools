@@ -1,6 +1,6 @@
 import { extractItemKey } from "../asin.js";
 import type { D1Client } from "../d1/client.js";
-import type { WishlistItem } from "../types.js";
+import type { Format, WishlistItem } from "../types.js";
 import type { ValidationError } from "../validate.js";
 
 // item_snapshots は9列。Cloudflare の1クエリあたりのバウンドパラメータ
@@ -171,6 +171,64 @@ export async function saveRunSnapshot(
   });
   await insertItemSnapshots(client, runId, params.items);
   await recordValidationErrors(client, runId, params.errors);
+}
+
+interface ItemSnapshotRow {
+  item_key: string;
+  title: string;
+  url: string;
+  format: string;
+  base_price: number | null;
+  kindle_price: number | null;
+  points: number;
+  has_paper_swatch: number;
+}
+
+// format 列は TEXT なので、スキーマ変更や手作業の INSERT で Format 以外の
+// 値が入りうる。判定は Kindle 以外を除外するだけなので、未知の値は安全側に
+// 倒して「その他」に丸める。
+function toFormat(value: string): Format {
+  return value === "Kindle" || value === "紙" ? value : "その他";
+}
+
+/**
+ * 指定リストの「直前の run」に属する item スナップショットを、
+ * item_key をキーにした Map で返す（差分通知の比較対象）。
+ *
+ * 直前の run が存在しない（初回実行）場合は空の Map を返す。run はあるが
+ * item が0件だった場合も空の Map になるが、どちらも「今回の全商品が新規」
+ * となり通知の結果は同じなので、両者を区別する必要はない。
+ *
+ * 同じ run 内で item_key が重複した場合（同一 ASIN がリストに2回入って
+ * いる等）は後の行で上書きする。同じ商品なら価格も同じなので実害はない。
+ */
+export async function fetchLatestRunItems(
+  client: D1Client,
+  wishlistId: number,
+): Promise<Map<string, WishlistItem>> {
+  // started_at が同一ミリ秒で並んだ場合に備え、id で決定的にタイブレークする。
+  const rows = await client.query<ItemSnapshotRow>(
+    `SELECT item_key, title, url, format, base_price, kindle_price, points, has_paper_swatch
+     FROM item_snapshots
+     WHERE run_id = (
+       SELECT id FROM runs WHERE wishlist_id = ? ORDER BY started_at DESC, id DESC LIMIT 1
+     )`,
+    [wishlistId],
+  );
+
+  const items = new Map<string, WishlistItem>();
+  for (const row of rows) {
+    items.set(row.item_key, {
+      title: row.title,
+      url: row.url,
+      format: toFormat(row.format),
+      P_base: row.base_price,
+      P_kindle: row.kindle_price,
+      Pt: row.points,
+      hasPaperSwatch: row.has_paper_swatch === 1,
+    });
+  }
+  return items;
 }
 
 /**
