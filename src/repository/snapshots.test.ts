@@ -4,6 +4,7 @@ import type { WishlistItem } from "../types.js";
 import type { ValidationError } from "../validate.js";
 import {
   ITEM_SNAPSHOT_BATCH_SIZE,
+  fetchLatestRunItems,
   insertItemSnapshots,
   pruneOldRuns,
   recordRun,
@@ -346,5 +347,101 @@ describe("pruneOldRuns", () => {
 
     const [, params] = client.query.mock.calls[2];
     expect(params[0]).toBe("2026-07-10T00:00:00.000Z");
+  });
+});
+
+// item_snapshots の1行分。D1 は INTEGER 列を number、NULL を null で返す。
+const snapshotRow = (overrides: Record<string, unknown> = {}) => ({
+  item_key: "4065162963",
+  title: "テスト本",
+  url: "https://www.amazon.co.jp/dp/4065162963",
+  format: "Kindle",
+  base_price: 1000,
+  kindle_price: 700,
+  points: 0,
+  has_paper_swatch: 1,
+  ...overrides,
+});
+
+describe("fetchLatestRunItems", () => {
+  it("直前の run を wishlist_id で絞り started_at の降順1件に限定して問い合わせる", async () => {
+    const client = fakeClient([]);
+
+    await fetchLatestRunItems(client, 7);
+
+    expect(client.query).toHaveBeenCalledTimes(1);
+    const [sql, params] = client.query.mock.calls[0];
+    expect(sql).toMatch(/FROM item_snapshots/);
+    expect(sql).toMatch(/SELECT id FROM runs WHERE wishlist_id = \?/);
+    expect(sql).toMatch(/ORDER BY started_at DESC, id DESC/);
+    expect(sql).toMatch(/LIMIT 1/);
+    expect(params).toEqual([7]);
+  });
+
+  it("item_key をキーにした Map で返す", async () => {
+    const client = fakeClient([
+      snapshotRow({ item_key: "AAAAAAAAAA" }),
+      snapshotRow({ item_key: "BBBBBBBBBB", title: "別の本" }),
+    ]);
+
+    const items = await fetchLatestRunItems(client, 1);
+
+    expect([...items.keys()]).toEqual(["AAAAAAAAAA", "BBBBBBBBBB"]);
+    expect(items.get("BBBBBBBBBB")?.title).toBe("別の本");
+  });
+
+  it("行を WishlistItem に復元する（has_paper_swatch の 0/1 を boolean に直す）", async () => {
+    const client = fakeClient([snapshotRow({ has_paper_swatch: 0 })]);
+
+    const items = await fetchLatestRunItems(client, 1);
+
+    expect(items.get("4065162963")).toEqual({
+      title: "テスト本",
+      url: "https://www.amazon.co.jp/dp/4065162963",
+      format: "Kindle",
+      P_base: 1000,
+      P_kindle: 700,
+      Pt: 0,
+      hasPaperSwatch: false,
+    });
+  });
+
+  it("base_price / kindle_price の NULL を null のまま復元する", async () => {
+    const client = fakeClient([
+      snapshotRow({ base_price: null, kindle_price: null }),
+    ]);
+
+    const item = await fetchLatestRunItems(client, 1);
+
+    expect(item.get("4065162963")?.P_base).toBeNull();
+    expect(item.get("4065162963")?.P_kindle).toBeNull();
+  });
+
+  it("直前の run がなければ空の Map を返す", async () => {
+    const client = fakeClient([]);
+
+    const items = await fetchLatestRunItems(client, 1);
+
+    expect(items.size).toBe(0);
+  });
+
+  it("未知の format は「その他」に丸める", async () => {
+    const client = fakeClient([snapshotRow({ format: "Audible版" })]);
+
+    const items = await fetchLatestRunItems(client, 1);
+
+    expect(items.get("4065162963")?.format).toBe("その他");
+  });
+
+  it("同じ run 内で item_key が重複したら後の行で上書きする", async () => {
+    const client = fakeClient([
+      snapshotRow({ kindle_price: 700 }),
+      snapshotRow({ kindle_price: 650 }),
+    ]);
+
+    const items = await fetchLatestRunItems(client, 1);
+
+    expect(items.size).toBe(1);
+    expect(items.get("4065162963")?.P_kindle).toBe(650);
   });
 });

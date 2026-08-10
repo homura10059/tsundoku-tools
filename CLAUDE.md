@@ -36,9 +36,9 @@ pnpm db:migrate:local # ローカル D1 に適用（動作確認用）
 
 ```
 src/
-  config.ts / types.ts / judge.ts / notify.ts / main.ts
+  config.ts / types.ts / judge.ts / diff.ts / notify.ts / main.ts
   d1/client.ts          Cloudflare D1 REST API クライアント
-  repository/           D1 アクセス（wishlists など）
+  repository/           D1 アクセス（wishlists / snapshots）
 migrations/             D1 スキーマ（wrangler で適用）
 fixtures/
   wishlist.json
@@ -50,6 +50,9 @@ fixtures/
 
 割引率・ポイント還元率を**個別に**評価し、いずれかが閾値以上なら通知対象（合算しない）。
 閾値は `wishlists.threshold` でリストごとに設定し、NULL なら既定値 20%。
+
+判定を満たしたもののうち、**前回スナップショットから変化があったものだけを通知する**
+（新規アイテム / 新規ヒット / 値下がり）。絶版の紙版がプレミア価格のまま毎日通知されるのを防ぐため。
 
 → 詳細: [docs/architecture.md](docs/architecture.md) / [要件定義](docs/requirement.md)
 

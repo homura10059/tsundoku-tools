@@ -2,9 +2,10 @@ import type { Deal, Wishlist } from "./types.js";
 import { jitter } from "./util/jitter.js";
 import type { ValidationError } from "./validate.js";
 
-// ステートレス運用: 通知履歴は保持しない。セール継続中は毎回同じ商品が通知される。
-// D1 にスナップショットを保存するようになっても、この方針は変えない
-// （保存はあくまで観測目的で、通知の判断には使わない）。
+// このモジュールは「渡された Deal を送る」だけを責務とする。どれを送るか
+// （前回から変化があったか）の判断は src/diff.ts の selectChangedDeals() が
+// main.ts 側で行う。増分8までは重複通知を許容するステートレス運用だったが、
+// 増分9で D1 のスナップショットとの差分通知に切り替えた（要件 §2.4）。
 
 const CHUNK_SIZE = 5;
 
