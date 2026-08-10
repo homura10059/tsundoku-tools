@@ -2,9 +2,14 @@ import { config } from "./config.js";
 import { crawl } from "./crawler.js";
 import type { D1Client } from "./d1/client.js";
 import { createD1Client } from "./d1/client.js";
+import { selectChangedDeals } from "./diff.js";
 import { judge } from "./judge.js";
 import { notify, notifyError } from "./notify.js";
-import { pruneOldRuns, saveRunSnapshot } from "./repository/snapshots.js";
+import {
+  fetchLatestRunItems,
+  pruneOldRuns,
+  saveRunSnapshot,
+} from "./repository/snapshots.js";
 import { fetchEnabledWishlists } from "./repository/wishlists.js";
 import type { Wishlist } from "./types.js";
 import { validate } from "./validate.js";
@@ -46,6 +51,27 @@ async function processWishlist(
   const deals = errors.length > 0 ? [] : judge(items, wishlist.threshold);
   const finishedAt = new Date().toISOString();
 
+  // 前回スナップショットの取得は saveRunSnapshot() より必ず前に行う。後に
+  // 置くと今回の run が「直前の run」になり、自分自身と比較してしまう。
+  let dealsToNotify = deals;
+  if (deals.length > 0) {
+    try {
+      const previousItems = await fetchLatestRunItems(d1, wishlist.id);
+      dealsToNotify = selectChangedDeals(
+        deals,
+        previousItems,
+        wishlist.threshold,
+      );
+    } catch (err) {
+      // 差分抑制は通知の質を上げる補助機能。読み取りに失敗したときは抑制
+      // せず全件通知する（通知漏れより重複通知の方が害が小さい）。D1 の
+      // 読み取り失敗を致命的に扱う fetchEnabledWishlists() とは扱いが違う。
+      console.error(
+        `${label} 前回スナップショットの取得に失敗しました（差分抑制せず全件通知します）: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   try {
     await saveRunSnapshot(d1, {
       wishlistId: wishlist.id,
@@ -70,12 +96,15 @@ async function processWishlist(
     return false;
   }
 
-  console.log(`${label} ${items.length}件中 ${deals.length}件が通知対象です。`);
+  console.log(
+    `${label} ${items.length}件中 ${deals.length}件が判定にヒット、` +
+      `うち前回から変化のあった ${dealsToNotify.length}件が通知対象です。`,
+  );
 
-  if (deals.length === 0) {
+  if (dealsToNotify.length === 0) {
     console.log(`${label} 通知対象商品なし。`);
   } else {
-    await notify(deals, config.discordWebhookUrl, wishlist);
+    await notify(dealsToNotify, config.discordWebhookUrl, wishlist);
     console.log(`${label} Discord へ通知を送信しました。`);
   }
 
